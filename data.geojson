@@ -1,0 +1,90 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [108.4610, 11.9055]
+      },
+      "properties": {
+        "name": "Đèo Mimosa (Sườn dốc)",
+        "risk_level": "Nguy cơ cao khi mưa bão",
+        "risk_color": "#E0115F",
+        "slope": "25.2°",
+        "elevation": "1235m",
+        "ndvi": "0.55",
+        "probability_dry": "26.73%",
+        "probability_rain150": "85.94%"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [107.7400, 11.4550]
+      },
+      "properties": {
+        "name": "Đèo Bảo Lộc (Trạm CSGT - Từng sạt lở)",
+        "risk_level": "Nguy cơ cao khi mưa bão",
+        "risk_color": "#E0115F",
+        "slope": "15.8°",
+        "elevation": "677m",
+        "ndvi": "0.87",
+        "probability_dry": "10.24%",
+        "probability_rain150": "67.68%"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [108.4450, 11.9000]
+      },
+      "properties": {
+        "name": "Đèo Prenn (Đoạn dốc vừa)",
+        "risk_level": "An toàn",
+        "risk_color": "#4C8C4A",
+        "slope": "5.7°",
+        "elevation": "1329m",
+        "ndvi": "0.61",
+        "probability_dry": "3.43%",
+        "probability_rain150": "8.15%"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [108.3700, 11.7510]
+      },
+      "properties": {
+        "name": "Sân bay Liên Khương (Bằng phẳng)",
+        "risk_level": "An toàn",
+        "risk_color": "#4C8C4A",
+        "slope": "0.6°",
+        "elevation": "956m",
+        "ndvi": "0.06",
+        "probability_dry": "10.05%",
+        "probability_rain150": "11.51%"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [108.4420, 11.9400]
+      },
+      "properties": {
+        "name": "Trung tâm TP. Đà Lạt",
+        "risk_level": "An toàn",
+        "risk_color": "#4C8C4A",
+        "slope": "0.5°",
+        "elevation": "1480m",
+        "ndvi": "0.33",
+        "probability_dry": "4.67%",
+        "probability_rain150": "6.84%"
+      }
+    }
+  ]
+}
