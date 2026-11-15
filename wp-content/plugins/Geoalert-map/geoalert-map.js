@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var el = document.getElementById('geoalert-map');
   if (!el || typeof L === 'undefined') { return; }
 
-  // Khung xem xấp xỉ tỉnh Lâm Đồng (cũ), chừa lề để kéo bản đồ thoải mái
+  // Khung xem xấp xỉ tỉnh Lâm Đồng, chừa lề để kéo bản đồ thoải mái
   var tinhBounds = L.latLngBounds([11.15, 107.30], [12.30, 108.85]);
   var gioiHan    = L.latLngBounds([10.80, 106.90], [12.65, 109.25]);
 
@@ -71,7 +71,6 @@ document.addEventListener('DOMContentLoaded', function () {
     return d;
   }
 
-  // Hiển thị thông tin điểm đã chọn (bước sau sẽ thêm kết quả nguy cơ vào đây)
   function renderSelection() {
     resultBody.innerHTML = '';
     var name = document.createElement('div');
@@ -131,7 +130,6 @@ document.addEventListener('DOMContentLoaded', function () {
     return v + (f.unit ? ' ' + f.unit : '');
   }
 
-  // Phần "Vì sao?": thanh mức đóng góp của từng yếu tố
   function appendFactors(slot, res) {
     if (!res.factors || !res.factors.length) { return; }
     var box = makeDiv('ga-why');
@@ -187,7 +185,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // Ổ cắm: báo điểm hoặc bán kính đã đổi, rồi lấy dữ liệu nguy cơ
   function announce() {
     document.dispatchEvent(new CustomEvent('geoalert:select', {
       detail: { lat: state.lat, lon: state.lon, radius: state.radius, label: state.label }
@@ -228,17 +225,23 @@ document.addEventListener('DOMContentLoaded', function () {
     state.lat = null;
     state.lon = null;
     state.label = '';
-    input.value = '';
+    if (input) { input.value = ''; }
     emptyMessage('Bấm lên bản đồ hoặc tìm một địa điểm để xem mức nguy cơ quanh đó.');
   }
 
-  // Chọn bán kính
+  // ===== Sự kiện bấm bản đồ & đổi bán kính =====
+  map.on('click', function (e) {
+    setPoint(e.latlng.lat, e.latlng.lng, '', false);
+  });
+
   radiusBtns.forEach(function (b) {
     b.addEventListener('click', function () {
-      var r = Math.min(parseInt(b.getAttribute('data-r'), 10), MAX_RADIUS);
+      var r = parseInt(b.getAttribute('data-r'), 10);
+      if (!r || r > MAX_RADIUS) { return; }
+      radiusBtns.forEach(function (x) { x.classList.remove('is-active'); });
+      b.classList.add('is-active');
       state.radius = r;
-      radiusBtns.forEach(function (x) { x.classList.toggle('is-active', x === b); });
-      if (state.lat !== null) {
+      if (state.lat !== null && state.lon !== null) {
         drawCircle();
         renderSelection();
         fitCircle();
@@ -247,69 +250,88 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  // Bấm lên bản đồ để chọn điểm
-  map.on('click', function (e) {
-    list.innerHTML = '';
-    setPoint(e.latlng.lat, e.latlng.lng, '', map.getZoom() < 11);
-  });
-
-  // ===== Tìm địa điểm (Photon) =====
-  function showMessage(text) {
-    list.innerHTML = '';
-    var li = document.createElement('li');
-    li.className = 'ga-msg';
-    li.textContent = text;
-    list.appendChild(li);
-  }
-
-  function nhan(props) {
-    var parts = [props.name, props.street, props.district, props.county, props.state];
-    var out = [];
-    parts.forEach(function (p) {
-      if (p && out.indexOf(p) === -1) { out.push(p); }
-    });
-    return out.join(', ');
-  }
-
-  function chooseResult(feature) {
-    var lon = feature.geometry.coordinates[0];
-    var lat = feature.geometry.coordinates[1];
-    var text = nhan(feature.properties);
-    list.innerHTML = '';
-    input.value = feature.properties.name || text;
-    setPoint(lat, lon, text, true);
-  }
-
-  function search() {
+  // ===== Tìm kiếm địa danh qua Photon API =====
+  function doSearch() {
+    if (!input || !list) { return; }
     var q = input.value.trim();
-    if (q.length < 2) { showMessage('Nhập ít nhất 2 ký tự.'); return; }
-    showMessage('Đang tìm...');
-    var url = 'https://photon.komoot.io/api/?limit=6'
-      + '&bbox=107.30,11.15,108.85,12.30'
-      + '&q=' + encodeURIComponent(q);
+    list.innerHTML = '';
+    if (!q) { return; }
+    var url = 'https://photon.komoot.io/api/?q=' + encodeURIComponent(q)
+            + '&bbox=107.30,11.15,108.85,12.30&limit=5';
     fetch(url)
-      .then(function (r) {
-        if (!r.ok) { throw new Error('http ' + r.status); }
-        return r.json();
-      })
+      .then(function (res) { return res.json(); })
       .then(function (data) {
         list.innerHTML = '';
-        var items = (data.features || []).filter(function (f) {
-          return f.properties && f.properties.countrycode === 'VN';
-        });
-        if (!items.length) { showMessage('Không tìm thấy địa điểm trong Lâm Đồng.'); return; }
-        items.forEach(function (f) {
+        var feats = (data && data.features) || [];
+        if (!feats.length) {
           var li = document.createElement('li');
-          li.textContent = nhan(f.properties);
-          li.addEventListener('click', function () { chooseResult(f); });
+          li.textContent = 'Không tìm thấy địa điểm phù hợp tại Lâm Đồng.';
+          list.appendChild(li);
+          return;
+        }
+        feats.forEach(function (f) {
+          var p = f.properties || {};
+          var coords = f.geometry && f.geometry.coordinates;
+          if (!coords) { return; }
+          var parts = [p.name, p.street, p.district, p.city, p.state].filter(Boolean);
+          var label = parts.join(', ') || q;
+          var li = document.createElement('li');
+          li.textContent = label;
+          li.addEventListener('click', function () {
+            list.innerHTML = '';
+            input.value = label;
+            setPoint(coords[1], coords[0], label, true);
+          });
           list.appendChild(li);
         });
       })
-      .catch(function () { showMessage('Không tìm được lúc này, thử lại sau.'); });
+      .catch(function () {
+        list.innerHTML = '';
+      });
   }
 
-  btn.addEventListener('click', search);
-  input.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); search(); }
-  });
-}); 
+  if (btn) { btn.addEventListener('click', doSearch); }
+  if (input) {
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+    });
+  }
+
+  // ===== NẠP DỮ LIỆU TỪ FILE DATA.GEOJSON =====
+  fetch('../data.geojson')
+    .then(function (res) {
+      if (!res.ok) { throw new Error('Không tải được data.geojson'); }
+      return res.json();
+    })
+    .then(function (geojsonData) {
+      L.geoJSON(geojsonData, {
+        pointToLayer: function (feature, latlng) {
+          var color = (feature.properties && feature.properties.risk_color) || '#1F4D2B';
+          return L.circleMarker(latlng, {
+            radius: 9,
+            fillColor: color,
+            color: '#FFFFFF',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.92
+          });
+        },
+        onEachFeature: function (feature, layer) {
+          var p = feature.properties || {};
+          var popupHtml = '<div style="font-family:sans-serif;font-size:13px;line-height:1.5;min-width:220px;">'
+            + '<strong style="color:#1F4D2B;font-size:14px;">' + (p.name || 'Điểm quan trắc') + '</strong><br>'
+            + '<span style="display:inline-block;margin:4px 0;padding:2px 8px;border-radius:4px;background:' + (p.risk_color || '#1F4D2B') + ';color:#fff;font-weight:600;font-size:12px;">'
+            + (p.risk_level || '') + '</span><br>'
+            + '• Độ dốc: <b>' + (p.slope || '-') + '</b> | Cao độ: <b>' + (p.elevation || '-') + '</b><br>'
+            + '• Chỉ số thực vật (NDVI): <b>' + (p.ndvi || '-') + '</b><br>'
+            + '• Xác suất mưa vừa (50mm): <b>' + (p.probability_dry || '-') + '</b><br>'
+            + '• Xác suất mưa bão (150mm): <b style="color:#E0115F;">' + (p.probability_rain150 || '-') + '</b>'
+            + '</div>';
+          layer.bindPopup(popupHtml);
+        }
+      }).addTo(map);
+    })
+    .catch(function (err) {
+      console.warn('GEOALERT GeoJSON:', err);
+    });
+});
