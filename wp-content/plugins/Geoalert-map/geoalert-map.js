@@ -229,6 +229,58 @@ document.addEventListener('DOMContentLoaded', function () {
     emptyMessage('Bấm lên bản đồ hoặc tìm một địa điểm để xem mức nguy cơ quanh đó.');
   }
 
+  // ===== Nút định vị vị trí hiện tại (Locate Me) =====
+  var locateControl = L.control({ position: 'topleft' });
+  locateControl.onAdd = function () {
+    var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+    var link = L.DomUtil.create('a', '', container);
+    link.href = '#';
+    link.title = 'Định vị vị trí hiện tại của tôi';
+    link.setAttribute('aria-label', 'Định vị vị trí hiện tại');
+    link.style.width = '30px';
+    link.style.height = '30px';
+    link.style.display = 'flex';
+    link.style.alignItems = 'center';
+    link.style.justifyContent = 'center';
+    link.style.backgroundColor = '#FFFFFF';
+    link.style.color = '#1F4D2B';
+    link.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+      + '<circle cx="12" cy="12" r="3"></circle>'
+      + '<path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>'
+      + '<circle cx="12" cy="12" r="8"></circle></svg>';
+
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.on(link, 'click', function (e) {
+      L.DomEvent.preventDefault(e);
+      if (!navigator.geolocation) {
+        emptyMessage('Trình duyệt của bạn không hỗ trợ định vị GPS.');
+        return;
+      }
+      emptyMessage('Đang xác định tọa độ GPS của bạn...');
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          var lat = pos.coords.latitude;
+          var lon = pos.coords.longitude;
+          if (!tinhBounds.contains([lat, lon])) {
+            emptyMessage('Vị trí GPS hiện tại của bạn (' + lat.toFixed(4) + ', ' + lon.toFixed(4) + ') đang nằm ngoài phạm vi tỉnh Lâm Đồng.');
+            return;
+          }
+          setPoint(lat, lon, 'Vị trí hiện tại của bạn', true);
+        },
+        function (err) {
+          if (err.code === 1) {
+            emptyMessage('Bạn đã từ chối quyền truy cập vị trí. Hãy cấp quyền định vị trên trình duyệt để sử dụng.');
+          } else {
+            emptyMessage('Không thể lấy tín hiệu GPS lúc này. Vui lòng thử lại.');
+          }
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+    return container;
+  };
+  locateControl.addTo(map);
+
   // ===== Sự kiện bấm bản đồ & đổi bán kính =====
   map.on('click', function (e) {
     setPoint(e.latlng.lat, e.latlng.lng, '', false);
