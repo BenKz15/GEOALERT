@@ -154,51 +154,51 @@ a{text-decoration-thickness:1px!important;text-underline-offset:.1em}:where(.wp-
 <div class="ga-page">
 
   <section class="ga-founders">
-    <p class="ga-founders-label">Đội ngũ sáng lập</p>
-    <p class="ga-founders-title">Những người khởi xướng GEOALERT</p>
+    <p class="ga-founders-label">Nhóm nghiên cứu &amp; phát triển</p>
+    <p class="ga-founders-title">THPT Chuyên Bảo Lộc · Dự án KHKT 2026 – 2027</p>
     <div class="ga-founders-grid">
       <div class="ga-founder">
         <div class="ga-avatar">H</div>
         <p class="ga-founder-name">Nguyễn Quang Huy</p>
-        <p class="ga-founder-role">Đồng sáng lập</p>
+        <p class="ga-founder-role">Đồng tác giả · Phát triển lõi AI &amp; Viễn thám</p>
       </div>
       <div class="ga-founder">
         <div class="ga-avatar">P</div>
         <p class="ga-founder-name">Phạm Ngọc Vinh Phú</p>
-        <p class="ga-founder-role">Đồng sáng lập</p>
+        <p class="ga-founder-role">Đồng tác giả · Kiến trúc hệ thống &amp; Giao diện Web</p>
       </div>
     </div>
   </section>
 
-  <p>GEOALERT là công cụ giúp người dân và người đi đường ở Lâm Đồng tham khảo mức nguy cơ sạt lở quanh một vị trí, giống như xem dự báo thời tiết trước khi đi.</p>
+  <h2>Mục tiêu dự án</h2>
+  <p><strong>GEOALERT</strong> là hệ thống đánh giá và hỗ trợ cảnh giác nguy cơ sạt lở đất hằng ngày tại tỉnh Lâm Đồng, được thiết kế trực quan như một ứng dụng xem thời tiết địa chất.</p>
+  <p>Thay vì tạo tâm lý hoang mang bằng các cảnh báo khẩn cấp thiếu kiểm chứng, hệ thống giúp người dân, tài xế và du khách chủ động quan sát lớp phủ thực vật, độ dốc địa hình và lượng mưa tích lũy quanh khu vực sinh sống hoặc các tuyến đèo huyết mạch trước khi di chuyển.</p>
 
-  <h2>Dành cho ai</h2>
+  <h2>Đối tượng phục vụ</h2>
   <ul>
-    <li>Người lái xe, khách du lịch chuẩn bị đi qua các đoạn đèo dốc.</li>
-    <li>Người dân sống gần sườn đồi, taluy.</li>
-    <li>Người làm công tác nghiên cứu, quản lý môi trường và thiên tai cần một cái nhìn tham khảo nhanh.</li>
+    <li><strong>Người tham gia giao thông (Bán kính 1km – 3km):</strong> Tài xế xe khách, xe tải và du khách kiểm tra mức độ an toàn của các cung đèo trọng điểm như Đèo Mimosa, Đèo Bảo Lộc, Đèo Prenn trước hành trình.</li>
+    <li><strong>Hộ gia đình ven đồi (Bán kính 500m):</strong> Theo dõi biến động thảm thực vật và lượng mưa tích lũy phía sau khu vực nhà ở để chủ động gia cố bờ taluy, khơi thông dòng chảy.</li>
+    <li><strong>Nghiên cứu &amp; Quản lý địa phương:</strong> Cung cấp góc nhìn tham khảo nhanh kết hợp giữa viễn thám đám mây và học máy.</li>
   </ul>
 
-  <h2>Khu vực phủ sóng</h2>
-  <p>Địa bàn tỉnh Lâm Đồng theo ranh giới trước đây, bao gồm các đèo và tuyến đường qua Tây Nguyên như Đèo Mimosa, Đèo Prenn, Đèo Bảo Lộc.</p>
-
-  <h2>Dữ liệu sử dụng</h2>
+  <h2>Công nghệ &amp; Mô hình Học máy</h2>
+  <p>Hệ thống vận hành theo <strong>Kiến trúc Ổ cắm (Socket Architecture)</strong> gồm 2 tầng độc lập: Tầng xử lý dữ liệu đa vệ tinh trên <strong>Google Earth Engine</strong> ở độ phân giải không gian 30 mét và Tầng giao diện bản đồ tương tác thời gian thực.</p>
   <ul class="ga-sources">
-    <li><strong>Sentinel-2</strong>Ảnh vệ tinh để theo dõi lớp phủ thực vật.</li>
-    <li><strong>SRTM</strong>Dữ liệu độ cao để tính độ dốc.</li>
-    <li><strong>CHIRPS</strong>Số liệu lượng mưa từ vệ tinh.</li>
-    <li><strong>OpenStreetMap</strong>Nền bản đồ và tìm kiếm địa điểm.</li>
+    <li><strong>Copernicus DEM GLO-30</strong>Trích xuất độ dốc bề mặt (Slope), cao độ (Elevation) và chỉ số vị trí địa hình (TPI) chuẩn hóa hệ quy chiếu 30m.</li>
+    <li><strong>Sentinel-2 (ESA)</strong>Tính toán chỉ số mật độ thảm thực vật quang học (NDVI) sau lọc mây dưới 20% để đánh giá khả năng giữ đất của rễ cây.</li>
+    <li><strong>MERIT Hydro &amp; OpenLandMap</strong>Xác định độ cao so với dòng chảy gần nhất (HAND) và tỷ lệ hạt sét trong đất (Clay) ở độ sâu 30cm.</li>
+    <li><strong>CHIRPS Daily</strong>Tích hợp lượng mưa tích lũy động học kích hoạt sạt lở theo diễn biến thời tiết thực tế.</li>
   </ul>
-  <p>Dữ liệu vệ tinh được xử lý trên nền tảng Google Earth Engine.</p>
+  <p><strong>Lõi trí tuệ nhân tạo (Ensemble Voting Classifier):</strong> Kết hợp đồng thời 3 thuật toán <strong>XGBoost</strong>, <strong>LightGBM</strong> và <strong>CatBoost</strong> huấn luyện trên 814 mẫu cân bằng thuộc 5 lô sinh thái (chuyển giao từ danh mục sạt lở thực tế của NASA), đạt chỉ số phân tách <strong>AUC-ROC 0.9692</strong> và độ phủ phát hiện sạt lở <strong>Recall 95.10%</strong>.</p>
 
   <div class="ga-warn">
-    <strong>Bản thử nghiệm</strong>
-    <p>GEOALERT đang được phát triển và chưa phải cảnh báo chính thức. Kết quả chỉ mang tính tham khảo, xem thêm ở trang Phương pháp và giới hạn.</p>
+    <strong>Lưu ý giới hạn sử dụng</strong>
+    <p>GEOALERT là công cụ hỗ trợ quan sát và phòng ngừa hằng ngày, không thay thế các bản tin cảnh báo thiên tai hoặc lệnh di dời chính thức của cơ quan chức năng. Xem chi tiết tại trang <em>Phương pháp và giới hạn</em>.</p>
   </div>
 
   <div class="ga-cta">
-    <p><strong>Muốn kiểm tra một đoạn đường?</strong></p>
-    <a class="ga-btn" href="https://benkz15.github.io/GEOALERT/ban-do-nguy-co/">Xem bản đồ nguy cơ</a>
+    <p><strong>Kiểm tra ngay tọa độ hoặc cung đèo bạn quan tâm</strong></p>
+    <a class="ga-btn" href="https://benkz15.github.io/GEOALERT/ban-do-nguy-co/">Mở Bản đồ nguy cơ</a>
   </div>
 </div>
 </div>
