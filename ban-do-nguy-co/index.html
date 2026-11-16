@@ -52,7 +52,6 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
 /*# sourceURL=https://benkz15.github.io/GEOALERT/wp-includes/blocks/columns/style.min.css */
 </style>
 <style id="wp-emoji-styles-inline-css">
-
 	img.wp-smiley, img.emoji {
 		display: inline !important;
 		border: none !important;
@@ -154,6 +153,14 @@ a{text-decoration-thickness:1px!important;text-underline-offset:.1em}:where(.wp-
 		<h1 class="wp-block-post-title">Bản đồ nguy cơ</h1>
 		<div class="entry-content alignfull wp-block-post-content has-global-padding is-layout-constrained wp-block-post-content-is-layout-constrained">    <div class="ga-app">
       <div class="ga-main">
+        <!-- THANH CHỌN NHANH VÙNG CHIẾN LƯỢC (QUICK ZONE FILTER) -->
+        <div class="ga-zones-bar" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+          <button type="button" class="ga-zone-btn" onclick="zoomToZone(11.9404, 108.4583, 14)" style="padding:6px 12px;font-size:13px;border-radius:4px;border:1px solid #1F4D2B;background:#f0f7f2;color:#1F4D2B;cursor:pointer;font-weight:600;">🌿 Đà Lạt</button>
+          <button type="button" class="ga-zone-btn" onclick="zoomToZone(11.9176, 108.4467, 14)" style="padding:6px 12px;font-size:13px;border-radius:4px;border:1px solid #1F4D2B;background:#f0f7f2;color:#1F4D2B;cursor:pointer;font-weight:600;">⛰️ Đèo Prenn</button>
+          <button type="button" class="ga-zone-btn" onclick="zoomToZone(11.8312, 108.4925, 14)" style="padding:6px 12px;font-size:13px;border-radius:4px;border:1px solid #1F4D2B;background:#f0f7f2;color:#1F4D2B;cursor:pointer;font-weight:600;">🚗 Đèo Mimosa</button>
+          <button type="button" class="ga-zone-btn" onclick="zoomToZone(11.5321, 107.6743, 13)" style="padding:6px 12px;font-size:13px;border-radius:4px;border:1px solid #E0115F;background:#fdf2f4;color:#E0115F;cursor:pointer;font-weight:600;">⚠️ Đèo Bảo Lộc</button>
+        </div>
+
         <div class="ga-search">
           <div class="ga-search-row">
             <input type="text" id="ga-search-input" placeholder="Tìm địa điểm, vd: Đà Lạt" autocomplete="off">
@@ -252,14 +259,22 @@ a{text-decoration-thickness:1px!important;text-underline-offset:.1em}:where(.wp-
 </footer>
 </div>
 <script type="speculationrules">
-{"prefetch":[{"source":"document","where":{"and":[{"href_matches":"/device-hp/*"},{"not":{"href_matches":["/device-hp/wp-*.php","/device-hp/wp-admin/*","/device-hp/wp-content/uploads/*","/device-hp/wp-content/*","/device-hp/wp-content/plugins/*","/device-hp/wp-content/themes/twentytwentyfive/*","/device-hp/*\\?(.+)"]}},{"not":{"selector_matches":"a[rel~=\"nofollow\"]"}},{"not":{"selector_matches":".no-prefetch, .no-prefetch a"}}]},"eagerness":"conservative"}]}
+{"prefetch":[{"source":"document","where":{"and":[{"href_matches":"/device-hp/*"},{"not":{"href_matches":["/device-hp/wp-*.php","/device-hp/wp-admin/*","/device-hp/wp-content/uploads/*","/device-hp/wp-content/*","/device-hp/wp-content/plugins/*","/device-hp/wp-content/themes/twentytwentyfive/*","/device-hp/*\\?(.+)"]}},{"not":{"selector_matches":"a[rel~=\"nofollow\"]"}},{"not":{"selector_matches":".no-preconnect, .no-prefetch a"}}]},"eagerness":"conservative"}]}
 </script>
 <script data-wp-router-options="{&quot;loadOnClientNavigation&quot;:true}" fetchpriority="low" id="@wordpress/block-library/navigation/view-js-module" src="https://benkz15.github.io/GEOALERT/wp-includes/js/dist/script-modules/block-library/navigation/view.min.js?ver=1bf28ded04f9f188bdcb" type="module"></script>
 <script id="leaflet-js-js" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js?ver=1.9.4"></script>
 <script id="geoalert-data-js" src="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-data.js?ver=1792833232"></script>
 <script id="geoalert-map-js" src="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-map.js?ver=1792836885"></script>
+<script>
+  // Hàm hỗ trợ nút chọn nhanh vùng chiến lược
+  function zoomToZone(lat, lon, zoom) {
+    if (window.geoalertMapInstance) {
+      window.geoalertMapInstance.setView([lat, lon], zoom);
+    }
+  }
+</script>
 <script id="wp-emoji-settings" type="application/json">
-{"baseUrl":"https://s.w.org/images/core/emoji/17.0.2/72x72/","ext":".png","svgUrl":"https://s.w.org/images/core/emoji/17.0.2/svg/","svgExt":".svg","source":{"concatemoji":"https://benkz15.github.io/GEOALERT/wp-includes/js/wp-emoji-release.min.js?ver=7.1.4"}}
+{"baseUrl":"https://s.w.org/images/core/emoji/17.0.2/72x72/","ext":".png","svgUrl":"https://s.w.org/images/core/emoji/17.0.2/svg/","svgExt":-.svg,"source":{"concatemoji":"https://benkz15.github.io/GEOALERT/wp-includes/js/wp-emoji-release.min.js?ver=7.1.4"}}
 </script>
 <script type="module">
 /*! This file is auto-generated */
