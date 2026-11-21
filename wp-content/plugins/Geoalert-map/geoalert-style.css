@@ -801,3 +801,17 @@ body .ga-app {
   left: auto !important;
   z-index: 1 !important;
 }
+
+.ga-app {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
+#geoalert-map {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  z-index: 1 !important;
+  transform: none !important;
+}
