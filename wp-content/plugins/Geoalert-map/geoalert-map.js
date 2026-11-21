@@ -1,8 +1,10 @@
+// Biến toàn cục để các nút chọn nhanh bên ngoài có thể gọi được
+var globalGeoAlertMap = null;
+
 document.addEventListener('DOMContentLoaded', function () {
   var el = document.getElementById('geoalert-map');
   if (!el || typeof L === 'undefined') { return; }
 
-  // Khung xem xấp xỉ tỉnh Lâm Đồng, chừa lề để kéo bản đồ thoải mái
   var tinhBounds = L.latLngBounds([11.15, 107.30], [12.30, 108.85]);
   var gioiHan    = L.latLngBounds([10.80, 106.90], [12.65, 109.25]);
 
@@ -14,6 +16,10 @@ document.addEventListener('DOMContentLoaded', function () {
     maxBoundsViscosity: 0.8
   });
   map.fitBounds(tinhBounds);
+  window.globalGeoAlertMap = map;
+
+  // Gán vào biến toàn cục để điều khiển từ bên ngoài
+  globalGeoAlertMap = map;
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 17,
@@ -23,7 +29,6 @@ document.addEventListener('DOMContentLoaded', function () {
   L.control.scale({ metric: true, imperial: false, position: 'bottomleft' }).addTo(map);
   L.control.attribution({ position: 'bottomleft', prefix: false }).addTo(map);
 
-  // ===== Trạng thái điểm đã chọn =====
   var MAX_RADIUS = 3000;
   var state = { lat: null, lon: null, label: '', radius: 1000 };
   var marker = null;
@@ -114,7 +119,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // ===== Hiển thị kết quả nguy cơ =====
   var riskToken = 0;
   var LEVEL_NAME = { low: 'Thấp', mid: 'Trung bình', high: 'Cao' };
 
@@ -229,7 +233,6 @@ document.addEventListener('DOMContentLoaded', function () {
     emptyMessage('Bấm lên bản đồ hoặc tìm một địa điểm để xem mức nguy cơ quanh đó.');
   }
 
-  // ===== Nút định vị vị trí hiện tại (Locate Me) =====
   var locateControl = L.control({ position: 'topleft' });
   locateControl.onAdd = function () {
     var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
@@ -281,7 +284,6 @@ document.addEventListener('DOMContentLoaded', function () {
   };
   locateControl.addTo(map);
 
-  // ===== Sự kiện bấm bản đồ & đổi bán kính =====
   map.on('click', function (e) {
     setPoint(e.latlng.lat, e.latlng.lng, '', false);
   });
@@ -302,7 +304,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  // ===== Tìm kiếm địa danh qua Photon API =====
   function doSearch() {
     if (!input || !list) { return; }
     var q = input.value.trim();
@@ -349,7 +350,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // ===== NẠP DỮ LIỆU TỪ FILE DATA.GEOJSON =====
   fetch('../data.geojson')
     .then(function (res) {
       if (!res.ok) { throw new Error('Không tải được data.geojson'); }
