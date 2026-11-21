@@ -788,3 +788,16 @@ body .ga-app {
   font-style: italic;
   color: var(--ga-muted);
 }
+
+.ga-app {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
+#geoalert-map {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  z-index: 1 !important;
+}
