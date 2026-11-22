@@ -92,8 +92,8 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
 .skip-link.screen-reader-text{border:0;clip-path:inset(50%);height:1px;margin:-1px;overflow:hidden;padding:0;position:absolute!important;width:1px;word-wrap:normal!important;word-break:normal!important}.skip-link.screen-reader-text:focus{background-color:#eee;clip-path:none;color:#444;display:block;font-size:1em;height:auto;left:5px;line-height:normal;padding:15px 23px 14px;text-decoration:none;top:5px;width:auto;z-index:100000}
 /*# sourceURL=/wp-includes/css/wp-block-template-skip-link.min.css */
 </style>
-<link rel="stylesheet" id="geoalert-style-css" href="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-style.css?ver=1792836915" media="all">
-<script src="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-v92.js?ver=1792836916"></script>
+<link rel="stylesheet" id="geoalert-style-css" href="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-style.css?ver=1792836920" media="all">
+<script src="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-v92.js?ver=1792836920"></script>
 <style id="twentytwentyfive-style-inline-css">
 a{text-decoration-thickness:1px!important;text-underline-offset:.1em}:where(.wp-site-blocks :focus){outline-width:2px;outline-style:solid}.wp-block-navigation .wp-block-navigation-submenu .wp-block-navigation-item:not(:last-child){margin-bottom:3px}.wp-block-navigation .wp-block-navigation-item .wp-block-navigation-item__content{outline-offset:4px}.wp-block-navigation .wp-block-navigation-item ul.wp-block-navigation__submenu-container .wp-block-navigation-item__content{outline-offset:0}blockquote,caption,figcaption,h1,h2,h3,h4,h5,h6,p{text-wrap:pretty}.more-link{display:block}:where(pre){overflow-x:auto}
 /*# sourceURL=https://benkz15.github.io/GEOALERT/wp-content/themes/twentytwentyfive/style.min.css */
@@ -170,6 +170,42 @@ a{text-decoration-thickness:1px!important;text-underline-offset:.1em}:where(.wp-
           <ul id="ga-search-results"></ul>
         </div>
         <div id="geoalert-map"></div>
+
+        <section id="ga-v92-lab" class="ga-panel" style="margin-top:14px;padding:14px 16px;">
+          <h3 class="ga-panel-title" style="margin:0 0 10px 0;font-size:16px;color:#1F4D2B;">Dự đoán &amp; Kiểm định GeoAlert V9.2</h3>
+
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;font-size:13px;">
+            <label for="ga-st-select" style="font-weight:600;color:#1e293b;">Điểm khảo sát:</label>
+            <select id="ga-st-select" style="flex:1;min-width:200px;padding:6px 8px;font-size:13px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;"></select>
+            <button type="button" id="ga-st-apply-btn" style="padding:6px 12px;font-size:13px;border-radius:6px;border:none;background:#1F4D2B;color:#fff;cursor:pointer;font-weight:600;">Nạp lên bản đồ</button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;margin-bottom:10px;">
+            <label style="font-size:12px;color:#334155;display:flex;flex-direction:column;gap:4px;">Slope_p90 (°)
+              <input id="ga-in-slope" type="number" step="0.1" value="27.65" style="width:100%;box-sizing:border-box;padding:5px 7px;font-size:13px;border:1px solid #cbd5e1;border-radius:6px;">
+            </label>
+            <label style="font-size:12px;color:#334155;display:flex;flex-direction:column;gap:4px;">Rain_1d (mm)
+              <input id="ga-in-r1d" type="number" step="0.1" value="40.62" style="width:100%;box-sizing:border-box;padding:5px 7px;font-size:13px;border:1px solid #cbd5e1;border-radius:6px;">
+            </label>
+            <label style="font-size:12px;color:#334155;display:flex;flex-direction:column;gap:4px;">Rain_3d (mm)
+              <input id="ga-in-r3d" type="number" step="0.1" value="67.55" style="width:100%;box-sizing:border-box;padding:5px 7px;font-size:13px;border:1px solid #cbd5e1;border-radius:6px;">
+            </label>
+            <label style="font-size:12px;color:#334155;display:flex;flex-direction:column;gap:4px;">Rain_15d (mm)
+              <input id="ga-in-r15d" type="number" step="0.1" value="352.53" style="width:100%;box-sizing:border-box;padding:5px 7px;font-size:13px;border:1px solid #cbd5e1;border-radius:6px;">
+            </label>
+            <label style="font-size:12px;color:#334155;display:flex;flex-direction:column;gap:4px;">Soil_Moisture
+              <input id="ga-in-soil" type="number" step="0.01" min="0" max="1" value="0.4905" style="width:100%;box-sizing:border-box;padding:5px 7px;font-size:13px;border:1px solid #cbd5e1;border-radius:6px;">
+            </label>
+          </div>
+
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+            <button type="button" id="ga-v92-run-btn" style="padding:7px 14px;font-size:13px;border-radius:6px;border:none;background:#E0115F;color:#fff;cursor:pointer;font-weight:600;">Chạy dự đoán V9.2</button>
+          </div>
+
+          <div id="ga-v92-result" style="margin-top:10px;padding:10px 12px;border-radius:8px;background:#f8fbf9;border:1px solid #d9e6dd;font-size:13px;line-height:1.45;">
+            Đang khởi tạo mô hình GeoAlert V9.2...
+          </div>
+        </section>
       </div>
 
       <aside class="ga-side">
@@ -224,108 +260,6 @@ a{text-decoration-thickness:1px!important;text-underline-offset:.1em}:where(.wp-
         </div>
       </aside>
     </div>
-
-    <section id="ga-v92-lab" style="margin-top:20px;padding:16px;border:1px solid #1F4D2B;border-radius:8px;background:#f8fbf9;">
-      <h3 style="margin-top:0;color:#1F4D2B;">Dự đoán &amp; Kiểm định GeoAlert V9.2 (Dữ liệu thực tế Stress Test Lâm Đồng)</h3>
-      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px;">
-        <label for="ga-st-select" style="font-weight:600;">Chọn 1 trong 27 ca Stress Test:</label>
-        <select id="ga-st-select" style="padding:6px 10px;border-radius:4px;border:1px solid #cbd5e1;min-width:260px;"></select>
-        <button type="button" id="ga-st-apply-btn" style="padding:6px 12px;border-radius:4px;border:none;background:#1F4D2B;color:#fff;cursor:pointer;font-weight:600;">Nạp điểm lên bản đồ</button>
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;">
-        <label style="font-size:13px;">Slope_p90 (°)
-          <input id="ga-in-slope" type="number" step="0.1" value="27.65" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:4px;">
-        </label>
-        <label style="font-size:13px;">Rain_1d_GPM (mm)
-          <input id="ga-in-r1d" type="number" step="0.1" value="40.62" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:4px;">
-        </label>
-        <label style="font-size:13px;">Rain_3d_GPM (mm)
-          <input id="ga-in-r3d" type="number" step="0.1" value="67.55" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:4px;">
-        </label>
-        <label style="font-size:13px;">Rain_15d_CHIRPS (mm)
-          <input id="ga-in-r15d" type="number" step="0.1" value="352.53" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:4px;">
-        </label>
-        <label style="font-size:13px;">Soil_Moisture
-          <input id="ga-in-soil" type="number" step="0.01" min="0" max="1" value="0.4905" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:4px;">
-        </label>
-      </div>
-
-      <button type="button" id="ga-v92-run-btn" style="padding:7px 14px;border-radius:4px;border:none;background:#E0115F;color:#fff;cursor:pointer;font-weight:600;">Chạy dự đoán V9.2</button>
-
-      <div id="ga-v92-result" style="margin-top:12px;padding:12px;border-radius:6px;background:#fff;border:1px solid #e2e8f0;font-size:14px;">
-        Đang khởi tạo mô hình GeoAlert V9.2...
-      </div>
-    </section>
-
-    <script>
-      (function () {
-        if (!window.GEOALERT_V92) return;
-        const { stressTest, predictV92FromInputs, meta } = window.GEOALERT_V92;
-        const sel = document.getElementById("ga-st-select");
-        const out = document.getElementById("ga-v92-result");
-        const inSlope = document.getElementById("ga-in-slope");
-        const inR1d = document.getElementById("ga-in-r1d");
-        const inR3d = document.getElementById("ga-in-r3d");
-        const inR15d = document.getElementById("ga-in-r15d");
-        const inSoil = document.getElementById("ga-in-soil");
-
-        stressTest.forEach((item) => {
-          const opt = document.createElement("option");
-          opt.value = item.id;
-          opt.textContent = `#${item.id + 1} · ${item.place} (${item.date}) — ${item.level}`;
-          sel.appendChild(opt);
-        });
-
-        function renderCase(item) {
-          out.innerHTML =
-            `<div><strong>Địa điểm:</strong> ${item.place} <span style="color:#64748b;">(${item.group} · ${item.date})</span></div>` +
-            `<div><strong>Xác suất V9.2 (XS_Gate / XS_AI):</strong> <strong>${(item.xsGate * 100).toFixed(2)}%</strong> / ${(item.xsAi * 100).toFixed(2)}% — <strong>${item.level}</strong> (${item.eval})</div>` +
-            `<div style="font-size:13px;color:#334155;margin-top:4px;">Biến: Slope_p90=${item.slope.toFixed(2)}° · Rain_1d=${item.rain1d}mm · Rain_3d=${item.rain3d}mm · Rain_15d=${item.rain15d}mm · Soil=${item.soil} · Stress_3d=${item.stress3d} · Hydro_Stress=${item.hydroStress}</div>` +
-            `<div style="font-size:12px;color:#64748b;margin-top:4px;">Ngưỡng chuẩn: Vàng ≥ ${meta.thresholds.yellowSafetyFirst} | Đỏ ≥ ${meta.thresholds.redActionFirst}</div>`;
-        }
-
-        function fillInputsFromCase(item) {
-          inSlope.value = item.slope;
-          inR1d.value = item.rain1d;
-          inR3d.value = item.rain3d;
-          inR15d.value = item.rain15d;
-          inSoil.value = item.soil;
-        }
-
-        sel.addEventListener("change", () => {
-          const item = stressTest[Number(sel.value)] || stressTest[0];
-          fillInputsFromCase(item);
-          renderCase(item);
-        });
-
-        document.getElementById("ga-st-apply-btn").addEventListener("click", () => {
-          const item = stressTest[Number(sel.value)] || stressTest[0];
-          fillInputsFromCase(item);
-          renderCase(item);
-          if (typeof window.zoomToZone === "function") {
-            window.zoomToZone(item.lat, item.lon, 14);
-          }
-        });
-
-        document.getElementById("ga-v92-run-btn").addEventListener("click", () => {
-          const pred = predictV92FromInputs({
-            slope: inSlope.value,
-            rain1d: inR1d.value,
-            rain3d: inR3d.value,
-            rain15d: inR15d.value,
-            soil: inSoil.value
-          });
-          out.innerHTML =
-            `<div><strong>Kết quả dự đoán thử nghiệm V9.2:</strong> <strong>${(pred.xsGate * 100).toFixed(2)}%</strong> (XS_AI: ${(pred.xsAi * 100).toFixed(2)}%) — <strong>${pred.level}</strong></div>` +
-            `<div style="font-size:13px;color:#334155;margin-top:4px;">Stress_1d=${pred.stress1d} · Stress_3d=${pred.stress3d} · Stress_15d=${pred.stress15d} · Hydro_Stress=${pred.hydroStress}</div>` +
-            `<div style="font-size:12px;color:#64748b;margin-top:4px;">Ngưỡng chuẩn: Vàng ≥ ${meta.thresholds.yellowSafetyFirst} | Đỏ ≥ ${meta.thresholds.redActionFirst}</div>`;
-        });
-
-        fillInputsFromCase(stressTest[0]);
-        renderCase(stressTest[0]);
-      })();
-    </script>
     
 </div>
 	</div>
@@ -367,7 +301,7 @@ a{text-decoration-thickness:1px!important;text-underline-offset:.1em}:where(.wp-
 <script data-wp-router-options="{&quot;loadOnClientNavigation&quot;:true}" fetchpriority="low" id="@wordpress/block-library/navigation/view-js-module" src="https://benkz15.github.io/GEOALERT/wp-includes/js/dist/script-modules/block-library/navigation/view.min.js?ver=1bf28ded04f9f188bdcb" type="module"></script>
 <script id="leaflet-js-js" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js?ver=1.9.4"></script>
 <script id="geoalert-data-js" src="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-data.js?ver=1792833232"></script>
-<script id="geoalert-map-js" src="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-map.js?ver=1792836886"></script>
+<script id="geoalert-map-js" src="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-map.js?ver=1792836920"></script>
 <script>
   function zoomToZone(lat, lon, zoom) {
     if (window.globalGeoAlertMap) {

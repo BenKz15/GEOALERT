@@ -1,5 +1,7 @@
-// Biến toàn cục để các nút chọn nhanh bên ngoài có thể gọi được
+// Biến toàn cục để các nút chọn nhanh và bảng dự đoán V9.2 có thể gọi được
 var globalGeoAlertMap = null;
+var setGeoAlertV92Point = null;
+var updateGeoAlertV92RightPanel = null;
 
 document.addEventListener('DOMContentLoaded', function () {
   var el = document.getElementById('geoalert-map');
@@ -17,8 +19,6 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   map.fitBounds(tinhBounds);
   window.globalGeoAlertMap = map;
-
-  // Gán vào biến toàn cục để điều khiển từ bên ngoài
   globalGeoAlertMap = map;
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function () {
   L.control.attribution({ position: 'bottomleft', prefix: false }).addTo(map);
 
   var MAX_RADIUS = 3000;
-  var state = { lat: null, lon: null, label: '', radius: 1000 };
+  var state = { lat: null, lon: null, label: '', radius: 1000, v92Result: null };
   var marker = null;
   var circle = null;
 
@@ -87,11 +87,9 @@ document.addEventListener('DOMContentLoaded', function () {
     var area = Math.PI * state.radius * state.radius / 1e6;
     resultBody.appendChild(row('Diện tích khảo sát', area.toFixed(1) + ' km²'));
 
-    var pending = document.createElement('div');
-    pending.className = 'ga-pending';
-    pending.textContent = 'Mức nguy cơ: chưa có dữ liệu.';
-    pending.id = 'ga-risk-slot';
-    resultBody.appendChild(pending);
+    var riskSlot = document.createElement('div');
+    riskSlot.id = 'ga-risk-slot';
+    resultBody.appendChild(riskSlot);
 
     var clear = document.createElement('button');
     clear.type = 'button';
@@ -119,7 +117,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  var riskToken = 0;
   var LEVEL_NAME = { low: 'Thấp', mid: 'Trung bình', high: 'Cao' };
 
   function makeDiv(cls, text) {
@@ -156,7 +153,11 @@ document.addEventListener('DOMContentLoaded', function () {
       item.appendChild(makeDiv('ga-why-pct', Math.round(f.contribution * 100) + '% mức đóng góp'));
       box.appendChild(item);
     });
-    box.appendChild(makeDiv('ga-why-note', 'Thanh dài hơn nghĩa là yếu tố đó góp nhiều hơn vào kết quả.'));
+    if (res.summaryReason) {
+      box.appendChild(makeDiv('ga-why-note', res.summaryReason));
+    } else {
+      box.appendChild(makeDiv('ga-why-note', 'Thanh dài hơn nghĩa là yếu tố đó góp nhiều hơn vào kết quả dự đoán V9.2.'));
+    }
     slot.appendChild(box);
   }
 
@@ -165,27 +166,32 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!slot) { return; }
     slot.innerHTML = '';
     if (!res) {
-      slot.className = 'ga-pending';
-      slot.textContent = 'Mức nguy cơ: chưa có dữ liệu.';
+      // Để trống hoàn toàn khi chưa chạy dự đoán V9.2
+      slot.className = '';
+      slot.style.display = 'none';
       return;
     }
+    slot.style.display = 'block';
     slot.className = 'ga-risk';
-    if (res.type === 'demo') {
-      slot.appendChild(makeDiv('ga-demo-tag', 'DỮ LIỆU MINH HỌA'));
-    }
+
     var head = makeDiv('ga-risk-head ga-risk-' + res.level);
     head.appendChild(makeDiv('ga-risk-label', 'Nguy cơ sạt lở'));
     head.appendChild(makeDiv('ga-risk-level', LEVEL_NAME[res.level] || ''));
     slot.appendChild(head);
-    slot.appendChild(row('Xác suất cao nhất trong bán kính', Math.round(res.probabilityMax * 100) + '%'));
-    slot.appendChild(row('Xác suất tại điểm chọn', Math.round(res.probability * 100) + '%'));
+
+    var radiusFactor = state.radius > 1000 ? Math.min(1, 1 + (state.radius - 1000) * 0.00004) : 1;
+    var probPoint = Math.min(1, Math.max(0, Number(res.probability) || 0));
+    var probMax = Math.min(1, Math.max(probPoint, Number(res.probabilityMax || probPoint) * radiusFactor));
+
+    slot.appendChild(row('Xác suất cao nhất trong bán kính', (probMax * 100).toFixed(1) + '%'));
+    slot.appendChild(row('Xác suất tại điểm chọn', (probPoint * 100).toFixed(1) + '%'));
     appendFactors(slot, res);
+
     if (res.updatedAt) {
       slot.appendChild(row('Cập nhật', new Date(res.updatedAt).toLocaleString('vi-VN')));
     }
-    if (res.source) { slot.appendChild(row('Nguồn', res.source)); }
-    if (res.type === 'demo') {
-      slot.appendChild(makeDiv('ga-demo-note', 'Số liệu này được tạo ngẫu nhiên để thử giao diện, không phản ánh nguy cơ thật.'));
+    if (res.source) {
+      slot.appendChild(row('Nguồn', res.source));
     }
   }
 
@@ -193,16 +199,11 @@ document.addEventListener('DOMContentLoaded', function () {
     document.dispatchEvent(new CustomEvent('geoalert:select', {
       detail: { lat: state.lat, lon: state.lon, radius: state.radius, label: state.label }
     }));
-    var slot = document.getElementById('ga-risk-slot');
-    if (slot) { slot.className = 'ga-pending'; slot.textContent = 'Đang tính...'; }
-    if (!window.GEOALERT || typeof GEOALERT.getRisk !== 'function') { renderRisk(null); return; }
-    var token = ++riskToken;
-    GEOALERT.getRisk(state.lat, state.lon, state.radius)
-      .then(function (res) { if (token === riskToken) { renderRisk(res); } })
-      .catch(function () { if (token === riskToken) { renderRisk(null); } });
+    // Chỉ hiển thị nếu điểm này đã được nạp kết quả dự đoán từ bảng GeoAlert V9.2
+    renderRisk(state.v92Result);
   }
 
-  function setPoint(lat, lon, label, shouldFit) {
+  function setPoint(lat, lon, label, shouldFit, v92Result) {
     if (!tinhBounds.contains([lat, lon])) {
       emptyMessage('Vị trí này nằm ngoài khu vực Lâm Đồng mà GEOALERT hỗ trợ.');
       return;
@@ -210,6 +211,7 @@ document.addEventListener('DOMContentLoaded', function () {
     state.lat = lat;
     state.lon = lon;
     state.label = label || '';
+    state.v92Result = v92Result || null;
 
     if (marker) { map.removeLayer(marker); }
     marker = L.marker([lat, lon], { icon: pinIcon }).addTo(map);
@@ -223,12 +225,27 @@ document.addEventListener('DOMContentLoaded', function () {
     announce();
   }
 
+  // Hàm công khai cho bảng Dự đoán & Kiểm định V9.2 gọi khi nhấn "Nạp lên bản đồ"
+  window.setGeoAlertV92Point = function (lat, lon, label, v92Result) {
+    setPoint(Number(lat), Number(lon), label, true, v92Result);
+  };
+  setGeoAlertV92Point = window.setGeoAlertV92Point;
+
+  // Hàm cập nhật kết quả bên phải nếu đang đứng sẵn tại một điểm trên bản đồ
+  window.updateGeoAlertV92RightPanel = function (v92Result) {
+    if (state.lat === null || state.lon === null) { return; }
+    state.v92Result = v92Result || null;
+    renderRisk(state.v92Result);
+  };
+  updateGeoAlertV92RightPanel = window.updateGeoAlertV92RightPanel;
+
   function clearPoint() {
     if (marker) { map.removeLayer(marker); marker = null; }
     if (circle) { map.removeLayer(circle); circle = null; }
     state.lat = null;
     state.lon = null;
     state.label = '';
+    state.v92Result = null;
     if (input) { input.value = ''; }
     emptyMessage('Bấm lên bản đồ hoặc tìm một địa điểm để xem mức nguy cơ quanh đó.');
   }
@@ -268,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function () {
             emptyMessage('Vị trí GPS hiện tại của bạn (' + lat.toFixed(4) + ', ' + lon.toFixed(4) + ') đang nằm ngoài phạm vi tỉnh Lâm Đồng.');
             return;
           }
-          setPoint(lat, lon, 'Vị trí hiện tại của bạn', true);
+          setPoint(lat, lon, 'Vị trí hiện tại của bạn', true, null);
         },
         function (err) {
           if (err.code === 1) {
@@ -285,7 +302,7 @@ document.addEventListener('DOMContentLoaded', function () {
   locateControl.addTo(map);
 
   map.on('click', function (e) {
-    setPoint(e.latlng.lat, e.latlng.lng, '', false);
+    setPoint(e.latlng.lat, e.latlng.lng, '', false, null);
   });
 
   radiusBtns.forEach(function (b) {
@@ -333,7 +350,7 @@ document.addEventListener('DOMContentLoaded', function () {
           li.addEventListener('click', function () {
             list.innerHTML = '';
             input.value = label;
-            setPoint(coords[1], coords[0], label, true);
+            setPoint(coords[1], coords[0], label, true, null);
           });
           list.appendChild(li);
         });
