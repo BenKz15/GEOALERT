@@ -1,5 +1,7 @@
-// Biến toàn cục để các nút chọn nhanh bên ngoài có thể gọi được
+// Biến toàn cục để các nút chọn nhanh và bảng dự đoán V9.2 có thể gọi được
 var globalGeoAlertMap = null;
+var setGeoAlertV92Point = null;
+var updateGeoAlertV92RightPanel = null;
 
 document.addEventListener('DOMContentLoaded', function () {
   var el = document.getElementById('geoalert-map');
@@ -29,7 +31,7 @@ document.addEventListener('DOMContentLoaded', function () {
   L.control.attribution({ position: 'bottomleft', prefix: false }).addTo(map);
 
   var MAX_RADIUS = 3000;
-  var state = { lat: null, lon: null, label: '', radius: 1000, date: '' };
+  var state = { lat: null, lon: null, label: '', radius: 1000, date: '', v92Result: null };
   var marker = null;
   var circle = null;
   var hotspotsLayer = L.layerGroup().addTo(map);
@@ -66,8 +68,8 @@ document.addEventListener('DOMContentLoaded', function () {
     dateInput.addEventListener('change', function () {
       state.date = dateInput.value || '';
       loadHotspots(state.date);
-      if (state.lat !== null && state.lon !== null) {
-        runPredict();
+      if (state.lat !== null && state.lon !== null && !state.v92Result) {
+        runApiPredict();
       }
     });
 
@@ -75,8 +77,8 @@ document.addEventListener('DOMContentLoaded', function () {
       dateInput.value = '';
       state.date = '';
       loadHotspots('');
-      if (state.lat !== null && state.lon !== null) {
-        runPredict();
+      if (state.lat !== null && state.lon !== null && !state.v92Result) {
+        runApiPredict();
       }
     });
 
@@ -133,11 +135,9 @@ document.addEventListener('DOMContentLoaded', function () {
     var area = Math.PI * state.radius * state.radius / 1e6;
     resultBody.appendChild(row('Diện tích khảo sát', area.toFixed(1) + ' km²'));
 
-    var pending = document.createElement('div');
-    pending.className = 'ga-pending';
-    pending.id = 'ga-risk-slot';
-    pending.textContent = statusText || 'Đang phân tích dữ liệu...';
-    resultBody.appendChild(pending);
+    var riskSlot = document.createElement('div');
+    riskSlot.id = 'ga-risk-slot';
+    resultBody.appendChild(riskSlot);
 
     var clear = document.createElement('button');
     clear.type = 'button';
@@ -145,6 +145,15 @@ document.addEventListener('DOMContentLoaded', function () {
     clear.textContent = 'Xóa điểm đã chọn';
     clear.addEventListener('click', clearPoint);
     resultBody.appendChild(clear);
+
+    if (state.v92Result) {
+      renderV92RightPanel(state.v92Result);
+    } else if (statusText) {
+      riskSlot.className = 'ga-pending';
+      riskSlot.textContent = statusText;
+    } else {
+      riskSlot.style.display = 'none';
+    }
   }
 
   function drawCircle() {
@@ -172,40 +181,92 @@ document.addEventListener('DOMContentLoaded', function () {
     return d;
   }
 
-  function mapRiskClass(data) {
-    var tier = (data.tier_code || '').toLowerCase();
-    if (tier === 'red' || data.risk_level === 'Cao') { return 'high'; }
-    if (tier === 'yellow' || data.risk_level === 'Trung bình') { return 'mid'; }
-    return 'low';
+  var LEVEL_NAME = { low: 'Thấp', mid: 'Trung bình', high: 'Cao' };
+
+  function renderV92RightPanel(res) {
+    var slot = document.getElementById('ga-risk-slot');
+    if (!slot) { return; }
+    slot.innerHTML = '';
+    if (!res) {
+      slot.style.display = 'none';
+      return;
+    }
+    slot.style.display = 'block';
+    slot.className = 'ga-risk';
+
+    var head = makeDiv('ga-risk-head ga-risk-' + (res.level || 'low'));
+    head.appendChild(makeDiv('ga-risk-label', 'Nguy cơ sạt lở'));
+    head.appendChild(makeDiv('ga-risk-level', LEVEL_NAME[res.level] || ''));
+    slot.appendChild(head);
+
+    var radiusFactor = state.radius > 1000 ? Math.min(1, 1 + (state.radius - 1000) * 0.00004) : 1;
+    var probPoint = Math.min(1, Math.max(0, Number(res.probability) || 0));
+    var probMax = Math.min(1, Math.max(probPoint, Number(res.probabilityMax || probPoint) * radiusFactor));
+
+    slot.appendChild(row('Xác suất cao nhất trong bán kính', (probMax * 100).toFixed(1) + '%'));
+    slot.appendChild(row('Xác suất tại điểm chọn', (probPoint * 100).toFixed(1) + '%'));
+
+    if (res.factors && res.factors.length) {
+      var box = makeDiv('ga-why');
+      box.appendChild(makeDiv('ga-why-title', 'Vì sao?'));
+      var sorted = res.factors.slice().sort(function (a, b) {
+        return b.contribution - a.contribution;
+      });
+      var max = sorted[0].contribution || 1;
+      sorted.forEach(function (f) {
+        var item = makeDiv('ga-why-item');
+        var top = makeDiv('ga-why-top');
+        top.appendChild(makeDiv('ga-why-name', f.label));
+        var valStr = (typeof f.value === 'number' && !f.unit) ? f.value.toFixed(2) : f.value;
+        top.appendChild(makeDiv('ga-why-val', valStr + (f.unit ? ' ' + f.unit : '')));
+        item.appendChild(top);
+        var track = makeDiv('ga-why-track');
+        var fill = makeDiv('ga-why-fill');
+        fill.style.width = Math.max(4, Math.round(f.contribution / max * 100)) + '%';
+        track.appendChild(fill);
+        item.appendChild(track);
+        item.appendChild(makeDiv('ga-why-pct', Math.round(f.contribution * 100) + '% mức đóng góp'));
+        box.appendChild(item);
+      });
+      box.appendChild(makeDiv('ga-why-note', res.summaryReason || 'Thanh dài hơn nghĩa là yếu tố đó góp nhiều hơn vào kết quả.'));
+      slot.appendChild(box);
+    }
+
+    if (res.updatedAt) {
+      slot.appendChild(row('Cập nhật', new Date(res.updatedAt).toLocaleString('vi-VN')));
+    }
+    if (res.source) {
+      slot.appendChild(row('Nguồn', res.source));
+    }
   }
 
-  function appendFeaturesAndWhy(slot, data) {
-    var feat = data.features || {};
-    var box = makeDiv('ga-why');
-    box.appendChild(makeDiv('ga-why-title', 'Vì sao?'));
+  function renderApiPredictionResult(data) {
+    var slot = document.getElementById('ga-risk-slot');
+    if (!slot) { return; }
+    slot.innerHTML = '';
+    slot.style.display = 'block';
+    slot.className = 'ga-risk';
 
-    var detailLines = [];
-    if (feat.slope_max_deg !== undefined && feat.slope_max_deg !== null) {
-      detailLines.push('Độ dốc: ' + feat.slope_max_deg + '°');
+    var tier = (data.tier_code || '').toLowerCase();
+    var riskCls = (tier === 'red' || data.risk_level === 'Cao') ? 'high'
+      : ((tier === 'yellow' || data.risk_level === 'Trung bình') ? 'mid' : 'low');
+
+    var head = makeDiv('ga-risk-head ga-risk-' + riskCls);
+    head.appendChild(makeDiv('ga-risk-label', 'Nguy cơ sạt lở'));
+    head.appendChild(makeDiv('ga-risk-level', data.risk_level || ''));
+    slot.appendChild(head);
+
+    if (data.prob_max_radius_pct !== undefined && data.prob_max_radius_pct !== null) {
+      slot.appendChild(row('Xác suất cao nhất trong bán kính', Number(data.prob_max_radius_pct).toFixed(1) + '%'));
     }
-    if (feat.rain_3d_mm !== undefined && feat.rain_3d_mm !== null) {
-      detailLines.push('Mưa 3 ngày: ' + feat.rain_3d_mm + ' mm');
-    }
-    if (feat.rain_15d_mm !== undefined && feat.rain_15d_mm !== null) {
-      detailLines.push('Mưa 15 ngày: ' + feat.rain_15d_mm + ' mm');
-    }
-    if (feat.soil_moisture_pct !== undefined && feat.soil_moisture_pct !== null) {
-      detailLines.push('Độ ẩm đất: ' + feat.soil_moisture_pct + '%');
-    }
-    if (feat.ndvi !== undefined && feat.ndvi !== null) {
-      detailLines.push('NDVI: ' + feat.ndvi);
-    }
-    if (detailLines.length) {
-      box.appendChild(makeDiv('ga-why-note', detailLines.join(' · ')));
+    if (data.prob_point_pct !== undefined && data.prob_point_pct !== null) {
+      slot.appendChild(row('Xác suất tại điểm chọn', Number(data.prob_point_pct).toFixed(1) + '%'));
     }
 
     var contribs = Array.isArray(data.contributions) ? data.contributions : [];
     if (contribs.length) {
+      var box = makeDiv('ga-why');
+      box.appendChild(makeDiv('ga-why-title', 'Vì sao?'));
       var sorted = contribs.slice().sort(function (a, b) {
         return (Number(b.contribution_pct) || 0) - (Number(a.contribution_pct) || 0);
       });
@@ -215,10 +276,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var item = makeDiv('ga-why-item');
         var top = makeDiv('ga-why-top');
         top.appendChild(makeDiv('ga-why-name', c.label || c.feature || 'Yếu tố'));
-        var valText = (c.value !== undefined && c.value !== null)
-          ? (c.value + (c.unit ? ' ' + c.unit : ''))
-          : '';
-        top.appendChild(makeDiv('ga-why-val', valText));
+        top.appendChild(makeDiv('ga-why-val', (c.value !== undefined && c.value !== null) ? (c.value + (c.unit ? ' ' + c.unit : '')) : ''));
         item.appendChild(top);
         var track = makeDiv('ga-why-track');
         var fill = makeDiv('ga-why-fill');
@@ -228,37 +286,11 @@ document.addEventListener('DOMContentLoaded', function () {
         item.appendChild(makeDiv('ga-why-pct', pct.toFixed(1) + '% mức đóng góp'));
         box.appendChild(item);
       });
+      if (data.recommendation) {
+        box.appendChild(makeDiv('ga-why-note', 'Khuyến nghị: ' + data.recommendation));
+      }
+      slot.appendChild(box);
     }
-
-    if (data.recommendation) {
-      box.appendChild(makeDiv('ga-why-note', 'Khuyến nghị: ' + data.recommendation));
-    }
-    slot.appendChild(box);
-  }
-
-  function renderPredictionResult(data) {
-    var slot = document.getElementById('ga-risk-slot');
-    if (!slot) { return; }
-    slot.innerHTML = '';
-    slot.className = 'ga-risk';
-
-    var riskCls = mapRiskClass(data);
-    var head = makeDiv('ga-risk-head ga-risk-' + riskCls);
-    head.appendChild(makeDiv('ga-risk-label', 'Nguy cơ sạt lở'));
-    head.appendChild(makeDiv('ga-risk-level', data.risk_level || ''));
-    slot.appendChild(head);
-
-    if (data.area_km2 !== undefined && data.area_km2 !== null) {
-      slot.appendChild(row('Diện tích khảo sát', Number(data.area_km2).toFixed(1) + ' km²'));
-    }
-    if (data.prob_max_radius_pct !== undefined && data.prob_max_radius_pct !== null) {
-      slot.appendChild(row('Xác suất cao nhất trong bán kính', Number(data.prob_max_radius_pct).toFixed(1) + '%'));
-    }
-    if (data.prob_point_pct !== undefined && data.prob_point_pct !== null) {
-      slot.appendChild(row('Xác suất tại điểm chọn', Number(data.prob_point_pct).toFixed(1) + '%'));
-    }
-
-    appendFeaturesAndWhy(slot, data);
 
     if (data.updated_at) {
       slot.appendChild(row('Cập nhật', new Date(data.updated_at).toLocaleString('vi-VN')));
@@ -289,11 +321,11 @@ document.addEventListener('DOMContentLoaded', function () {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    var bodyJson = await response.json().catch(function () { return {}; });
     if (!response.ok) {
-      var err = await response.json().catch(function () { return {}; });
-      throw new Error(err.detail || 'Lỗi khi gọi API dự báo');
+      throw new Error(bodyJson.detail || 'Lỗi khi gọi API dự báo');
     }
-    return await response.json();
+    return bodyJson;
   }
 
   function tierColor(tier) {
@@ -329,7 +361,7 @@ document.addEventListener('DOMContentLoaded', function () {
           cm.bindTooltip(title + (probText ? (' — ' + probText) : ''));
           cm.on('click', function (ev) {
             L.DomEvent.stopPropagation(ev);
-            setPoint(lat, lon, title, true);
+            setPoint(lat, lon, title, true, null);
           });
           cm.addTo(hotspotsLayer);
         });
@@ -346,15 +378,11 @@ document.addEventListener('DOMContentLoaded', function () {
     radiusBtns.forEach(function (b) { b.disabled = disabled; });
   }
 
-  function runPredict() {
+  function runApiPredict() {
     if (state.lat === null || state.lon === null) { return; }
     var token = ++predictToken;
     setControlsDisabled(true);
     renderSelection('Đang phân tích dữ liệu...');
-
-    document.dispatchEvent(new CustomEvent('geoalert:select', {
-      detail: { lat: state.lat, lon: state.lon, radius: state.radius, label: state.label, date: state.date }
-    }));
 
     fetchPredict({
       lat: state.lat,
@@ -364,12 +392,13 @@ document.addEventListener('DOMContentLoaded', function () {
     })
       .then(function (res) {
         if (token !== predictToken) { return; }
-        renderPredictionResult(res);
+        renderApiPredictionResult(res);
       })
       .catch(function (err) {
         if (token !== predictToken) { return; }
         var slot = document.getElementById('ga-risk-slot');
         if (slot) {
+          slot.style.display = 'block';
           slot.className = 'ga-pending';
           slot.textContent = err.message || 'Không thể lấy kết quả dự báo lúc này.';
         }
@@ -381,7 +410,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
   }
 
-  function setPoint(lat, lon, label, shouldFit) {
+  function setPoint(lat, lon, label, shouldFit, v92Result) {
     if (!tinhBounds.contains([lat, lon])) {
       emptyMessage('Vị trí này nằm ngoài khu vực Lâm Đồng mà GEOALERT hỗ trợ.');
       return;
@@ -389,6 +418,7 @@ document.addEventListener('DOMContentLoaded', function () {
     state.lat = lat;
     state.lon = lon;
     state.label = label || '';
+    state.v92Result = v92Result || null;
 
     if (marker) { map.removeLayer(marker); }
     marker = L.marker([lat, lon], { icon: pinIcon }).addTo(map);
@@ -397,16 +427,28 @@ document.addEventListener('DOMContentLoaded', function () {
     marker.bindPopup(tip);
 
     drawCircle();
-    renderSelection('Đang phân tích dữ liệu...');
-    if (shouldFit) { fitCircle(); }
-    runPredict();
+    if (state.v92Result) {
+      renderSelection('');
+      if (shouldFit) { fitCircle(); }
+    } else {
+      renderSelection('Đang phân tích dữ liệu...');
+      if (shouldFit) { fitCircle(); }
+      runApiPredict();
+    }
   }
 
-  // Cho phép các nút chọn nhanh gọi thẳng tọa độ và dự báo qua API
-  window.zoomToZone = function (lat, lon, zoom) {
-    setPoint(Number(lat), Number(lon), 'Vùng chọn nhanh (' + Number(lat).toFixed(4) + ', ' + Number(lon).toFixed(4) + ')', false);
-    map.flyTo([Number(lat), Number(lon)], Number(zoom) || 14, { duration: 1 });
+  window.setGeoAlertV92Point = function (lat, lon, label, v92Result) {
+    setPoint(Number(lat), Number(lon), label, true, v92Result);
   };
+  setGeoAlertV92Point = window.setGeoAlertV92Point;
+
+  window.updateGeoAlertV92RightPanel = function (v92Result) {
+    state.v92Result = v92Result || null;
+    if (state.lat !== null && state.lon !== null) {
+      renderV92RightPanel(state.v92Result);
+    }
+  };
+  updateGeoAlertV92RightPanel = window.updateGeoAlertV92RightPanel;
 
   function clearPoint() {
     predictToken++;
@@ -416,6 +458,7 @@ document.addEventListener('DOMContentLoaded', function () {
     state.lat = null;
     state.lon = null;
     state.label = '';
+    state.v92Result = null;
     if (input) { input.value = ''; }
     emptyMessage('Bấm lên bản đồ hoặc tìm một địa điểm để xem mức nguy cơ quanh đó.');
   }
@@ -456,7 +499,7 @@ document.addEventListener('DOMContentLoaded', function () {
             emptyMessage('Vị trí GPS hiện tại của bạn (' + lat.toFixed(4) + ', ' + lon.toFixed(4) + ') đang nằm ngoài phạm vi tỉnh Lâm Đồng.');
             return;
           }
-          setPoint(lat, lon, 'Vị trí hiện tại của bạn', true);
+          setPoint(lat, lon, 'Vị trí hiện tại của bạn', true, null);
         },
         function (err) {
           if (err.code === 1) {
@@ -474,7 +517,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   map.on('click', function (e) {
     if (isPredicting) { return; }
-    setPoint(e.latlng.lat, e.latlng.lng, '', false);
+    setPoint(e.latlng.lat, e.latlng.lng, '', false, null);
   });
 
   radiusBtns.forEach(function (b) {
@@ -488,7 +531,11 @@ document.addEventListener('DOMContentLoaded', function () {
       if (state.lat !== null && state.lon !== null) {
         drawCircle();
         fitCircle();
-        runPredict();
+        if (state.v92Result) {
+          renderSelection('');
+        } else {
+          runApiPredict();
+        }
       }
     });
   });
@@ -522,7 +569,7 @@ document.addEventListener('DOMContentLoaded', function () {
           li.addEventListener('click', function () {
             list.innerHTML = '';
             input.value = label;
-            setPoint(coords[1], coords[0], label, true);
+            setPoint(coords[1], coords[0], label, true, null);
           });
           list.appendChild(li);
         });
