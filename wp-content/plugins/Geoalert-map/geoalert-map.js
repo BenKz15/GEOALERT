@@ -403,16 +403,16 @@ document.addEventListener('DOMContentLoaded', function () {
     setOverlayStatus('Đang tải lớp bản đồ...');
     try {
       var res = await fetch(API_BASE + '/overlay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lat: Number(center.lat),
-          lon: Number(center.lng !== undefined ? center.lng : center.lon),
-          radius_m: Math.max(Number(state.radius), 2000),
-          date: state.date || null,
-          layer: layerName
-        })
-      });
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lat: Number(center.lat),
+        lon: Number(center.lng !== undefined ? center.lng : center.lon),
+        radius_m: Number(state.radius),
+        date: state.date || null,
+        layer: layerName
+      })
+    });
       if (!res.ok) {
         var err = await res.json().catch(function () { return {}; });
         throw new Error(err.detail || ('Không tải được lớp bản đồ ' + layerName));
