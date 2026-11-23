@@ -92,8 +92,66 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
 .skip-link.screen-reader-text{border:0;clip-path:inset(50%);height:1px;margin:-1px;overflow:hidden;padding:0;position:absolute!important;width:1px;word-wrap:normal!important;word-break:normal!important}.skip-link.screen-reader-text:focus{background-color:#eee;clip-path:none;color:#444;display:block;font-size:1em;height:auto;left:5px;line-height:normal;padding:15px 23px 14px;text-decoration:none;top:5px;width:auto;z-index:100000}
 /*# sourceURL=/wp-includes/css/wp-block-template-skip-link.min.css */
 </style>
-<link rel="stylesheet" id="geoalert-style-css" href="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-style.css?ver=1792836920" media="all">
-<script src="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-v92.js?ver=1792836920"></script>
+<link rel="stylesheet" id="geoalert-style-css" href="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-style.css?ver=1792836960" media="all">
+<style id="geoalert-v92-30m-css">
+/* Giữ sắc nét lớp ảnh raster 30m khi zoom trên Leaflet */
+.leaflet-image-layer {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Trạng thái Mặt nước (ESA WorldCover mã 80) */
+.ga-risk-water {
+  background: #e0f2fe !important;
+  color: #0284c7 !important;
+  border: 1px solid #7dd3fc !important;
+}
+
+/* Câu khuyến nghị ứng phó dưới thẻ nguy cơ */
+.ga-rec-box {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #f8fafc;
+  border-left: 3px solid #1F4D2B;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #1e293b;
+}
+
+/* Khối phụ Tham khảo trong bán kính */
+.ga-max-ref {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #1e293b;
+}
+.ga-max-ref.is-safe {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+.ga-max-ref-title {
+  font-weight: 700;
+  color: #92400e;
+  margin-bottom: 3px;
+}
+.ga-max-ref.is-safe .ga-max-ref-title {
+  color: #334155;
+}
+
+/* Câu tóm tắt trong khối Vì sao? */
+.why-summary {
+  margin: 0 0 8px 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #334155;
+}
+</style>
+<script src="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-v92.js?ver=1792836960"></script>
 <style id="twentytwentyfive-style-inline-css">
 a{text-decoration-thickness:1px!important;text-underline-offset:.1em}:where(.wp-site-blocks :focus){outline-width:2px;outline-style:solid}.wp-block-navigation .wp-block-navigation-submenu .wp-block-navigation-item:not(:last-child){margin-bottom:3px}.wp-block-navigation .wp-block-navigation-item .wp-block-navigation-item__content{outline-offset:4px}.wp-block-navigation .wp-block-navigation-item ul.wp-block-navigation__submenu-container .wp-block-navigation-item__content{outline-offset:0}blockquote,caption,figcaption,h1,h2,h3,h4,h5,h6,p{text-wrap:pretty}.more-link{display:block}:where(pre){overflow-x:auto}
 /*# sourceURL=https://benkz15.github.io/GEOALERT/wp-content/themes/twentytwentyfive/style.min.css */
@@ -154,12 +212,12 @@ a{text-decoration-thickness:1px!important;text-underline-offset:.1em}:where(.wp-
 		<h1 class="wp-block-post-title">Bản đồ nguy cơ</h1>
 		<div class="entry-content alignfull wp-block-post-content has-global-padding is-layout-constrained wp-block-post-content-is-layout-constrained">    <div class="ga-app">
       <div class="ga-main">
-        <!-- THANH CHỌN NHANH VÙNG CHIẾN LƯỢC (QUICK ZONE FILTER) -->
+        <!-- THANH CHỌN NHANH VÙNG CHIẾN LƯỢC (TỌA ĐỘ CHUẨN THỰC ĐỊA) -->
         <div class="ga-zones-bar" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-          <button type="button" class="ga-zone-btn" onclick="zoomToZone(11.9404, 108.4583, 14)" style="padding:6px 12px;font-size:13px;border-radius:4px;border:1px solid #1F4D2B;background:#f0f7f2;color:#1F4D2B;cursor:pointer;font-weight:600;">🌿 Đà Lạt</button>
-          <button type="button" class="ga-zone-btn" onclick="zoomToZone(11.9060, 108.4445, 14)" style="padding:6px 12px;font-size:13px;border-radius:4px;border:1px solid #1F4D2B;background:#f0f7f2;color:#1F4D2B;cursor:pointer;font-weight:600;">⛰️ Đèo Prenn</button>
-          <button type="button" class="ga-zone-btn" onclick="zoomToZone(11.83919, 108.45677, 14)" style="padding:6px 12px;font-size:13px;border-radius:4px;border:1px solid #1F4D2B;background:#f0f7f2;color:#1F4D2B;cursor:pointer;font-weight:600;">🚗 Đèo Mimosa</button>
-          <button type="button" class="ga-zone-btn" onclick="zoomToZone(11.45532, 107.71773, 13)" style="padding:6px 12px;font-size:13px;border-radius:4px;border:1px solid #E0115F;background:#fdf2f4;color:#E0115F;cursor:pointer;font-weight:600;">⚠️ Đèo Bảo Lộc</button>
+          <button type="button" class="ga-zone-btn" onclick="zoomToZone(11.9404, 108.4583, 14, 'Trung tâm Đà Lạt')" style="padding:6px 12px;font-size:13px;border-radius:4px;border:1px solid #1F4D2B;background:#f0f7f2;color:#1F4D2B;cursor:pointer;font-weight:600;">🌿 Đà Lạt</button>
+          <button type="button" class="ga-zone-btn" onclick="zoomToZone(11.9000, 108.4450, 14, 'Đèo Prenn')" style="padding:6px 12px;font-size:13px;border-radius:4px;border:1px solid #1F4D2B;background:#f0f7f2;color:#1F4D2B;cursor:pointer;font-weight:600;">⛰️ Đèo Prenn</button>
+          <button type="button" class="ga-zone-btn" onclick="zoomToZone(11.904572, 108.463161, 15, 'Đèo Mimosa')" style="padding:6px 12px;font-size:13px;border-radius:4px;border:1px solid #1F4D2B;background:#f0f7f2;color:#1F4D2B;cursor:pointer;font-weight:600;">🚗 Đèo Mimosa</button>
+          <button type="button" class="ga-zone-btn" onclick="zoomToZone(11.455536, 107.717375, 15, 'Đèo Bảo Lộc')" style="padding:6px 12px;font-size:13px;border-radius:4px;border:1px solid #E0115F;background:#fdf2f4;color:#E0115F;cursor:pointer;font-weight:600;">⚠️ Đèo Bảo Lộc</button>
         </div>
 
         <div class="ga-search">
@@ -171,39 +229,18 @@ a{text-decoration-thickness:1px!important;text-underline-offset:.1em}:where(.wp-
         </div>
         <div id="geoalert-map"></div>
 
+        <!-- KIỂM CHỨNG THỰC ĐỊA GEOALERT V9.2 (12 MỐC CHUẨN 30M) -->
         <section id="ga-v92-lab" class="ga-panel" style="margin-top:14px;padding:14px 16px;">
-          <h3 class="ga-panel-title" style="margin:0 0 10px 0;font-size:16px;color:#1F4D2B;">Dự đoán &amp; Kiểm định GeoAlert V9.2</h3>
+          <h3 class="ga-panel-title" style="margin:0 0 10px 0;font-size:16px;color:#1F4D2B;">Kiểm chứng thực địa GeoAlert V9.2 (12 mốc chuẩn 30m)</h3>
 
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;font-size:13px;">
-            <label for="ga-st-select" style="font-weight:600;color:#1e293b;">Điểm khảo sát:</label>
-            <select id="ga-st-select" style="flex:1;min-width:200px;padding:6px 8px;font-size:13px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;"></select>
-            <button type="button" id="ga-st-apply-btn" style="padding:6px 12px;font-size:13px;border-radius:6px;border:none;background:#1F4D2B;color:#fff;cursor:pointer;font-weight:600;">Nạp lên bản đồ</button>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;font-size:13px;">
+            <label for="ga-st-select" style="font-weight:600;color:#1e293b;">Chọn mốc kiểm chứng:</label>
+            <select id="ga-st-select" style="flex:1;min-width:240px;padding:6px 8px;font-size:13px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;"></select>
+            <button type="button" id="ga-st-apply-btn" style="padding:6px 14px;font-size:13px;border-radius:6px;border:none;background:#1F4D2B;color:#fff;cursor:pointer;font-weight:600;">Kiểm chứng trên bản đồ</button>
           </div>
 
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;margin-bottom:10px;">
-            <label style="font-size:12px;color:#334155;display:flex;flex-direction:column;gap:4px;">Slope_p90 (°)
-              <input id="ga-in-slope" type="number" step="0.1" value="27.65" style="width:100%;box-sizing:border-box;padding:5px 7px;font-size:13px;border:1px solid #cbd5e1;border-radius:6px;">
-            </label>
-            <label style="font-size:12px;color:#334155;display:flex;flex-direction:column;gap:4px;">Rain_1d (mm)
-              <input id="ga-in-r1d" type="number" step="0.1" value="40.62" style="width:100%;box-sizing:border-box;padding:5px 7px;font-size:13px;border:1px solid #cbd5e1;border-radius:6px;">
-            </label>
-            <label style="font-size:12px;color:#334155;display:flex;flex-direction:column;gap:4px;">Rain_3d (mm)
-              <input id="ga-in-r3d" type="number" step="0.1" value="67.55" style="width:100%;box-sizing:border-box;padding:5px 7px;font-size:13px;border:1px solid #cbd5e1;border-radius:6px;">
-            </label>
-            <label style="font-size:12px;color:#334155;display:flex;flex-direction:column;gap:4px;">Rain_15d (mm)
-              <input id="ga-in-r15d" type="number" step="0.1" value="352.53" style="width:100%;box-sizing:border-box;padding:5px 7px;font-size:13px;border:1px solid #cbd5e1;border-radius:6px;">
-            </label>
-            <label style="font-size:12px;color:#334155;display:flex;flex-direction:column;gap:4px;">Soil_Moisture
-              <input id="ga-in-soil" type="number" step="0.01" min="0" max="1" value="0.4905" style="width:100%;box-sizing:border-box;padding:5px 7px;font-size:13px;border:1px solid #cbd5e1;border-radius:6px;">
-            </label>
-          </div>
-
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-            <button type="button" id="ga-v92-run-btn" style="padding:7px 14px;font-size:13px;border-radius:6px;border:none;background:#E0115F;color:#fff;cursor:pointer;font-weight:600;">Chạy dự đoán V9.2</button>
-          </div>
-
-          <div id="ga-v92-result" style="margin-top:10px;padding:10px 12px;border-radius:8px;background:#f8fbf9;border:1px solid #d9e6dd;font-size:13px;line-height:1.45;">
-            Đang khởi tạo mô hình GeoAlert V9.2...
+          <div id="ga-st-note" style="padding:9px 11px;border-radius:8px;background:#f8fbf9;border:1px solid #d9e6dd;font-size:12.5px;line-height:1.45;color:#334155;">
+            Đang tải danh sách 12 điểm kiểm chứng chuẩn...
           </div>
         </section>
       </div>
@@ -221,37 +258,46 @@ a{text-decoration-thickness:1px!important;text-underline-offset:.1em}:where(.wp-
             </div>
           </div>
           <div id="ga-result-body">
-            <p class="ga-empty">Bấm lên bản đồ hoặc tìm một địa điểm để xem mức nguy cơ quanh đó.</p>
+            <p class="ga-empty">Bấm lên bản đồ, chọn chấm trọng điểm hoặc chọn mốc kiểm chứng để xem mức nguy cơ.</p>
           </div>
         </section>
 
         <section class="ga-panel" id="ga-panel-layers">
           <h3 class="ga-panel-title">Lớp bản đồ</h3>
-          <label class="ga-layer ga-layer-off">
-            <input type="checkbox" disabled>
-            <span class="ga-chip ga-chip-risk"></span>
-            Nguy cơ sạt lở <em>sắp có</em>
+          <label class="ga-layer" style="cursor:pointer;">
+            <input type="checkbox" id="ga-layer-hotspot">
+            <span class="ga-chip" style="background:#c80c2c;"></span>
+            Điểm nóng sạt lở
           </label>
-          <label class="ga-layer ga-layer-off">
-            <input type="checkbox" disabled>
-            <span class="ga-chip ga-chip-veg"></span>
-            Lớp phủ thực vật <em>sắp có</em>
+          <label class="ga-layer" style="cursor:pointer;">
+            <input type="checkbox" id="ga-layer-zoning">
+            <span class="ga-chip" style="background:linear-gradient(90deg,#facc15,#dc2626);"></span>
+            Phân vùng nguy cơ (Vàng-Đỏ)
           </label>
+          <label class="ga-layer" style="cursor:pointer;">
+            <input type="checkbox" id="ga-layer-ndvi">
+            <span class="ga-chip" style="background:linear-gradient(90deg,#1F4D2B,#A8C686,#d6c7a9);"></span>
+            Lớp phủ thực vật
+          </label>
+          <div id="ga-overlay-status" style="font-size:12px;color:#64748b;margin-top:6px;"></div>
         </section>
 
         <section class="ga-panel" id="ga-panel-legend">
           <h3 class="ga-panel-title">Chú giải</h3>
-          <div class="ga-key-title">Nguy cơ sạt lở</div>
-          <div class="ga-key-row"><span class="ga-chip" style="background:var(--ga-risk-low)"></span>Thấp</div>
-          <div class="ga-key-row"><span class="ga-chip" style="background:var(--ga-risk-mid)"></span>Trung bình</div>
-          <div class="ga-key-row"><span class="ga-chip" style="background:var(--ga-risk-high)"></span>Cao</div>
-          <div class="ga-key-title">Lớp phủ thực vật</div>
-          <div class="ga-key-row"><span class="ga-chip" style="background:#1F4D2B"></span>Rừng dày</div>
-          <div class="ga-key-row"><span class="ga-chip" style="background:#A8C686"></span>Rừng thưa</div>
-          <div class="ga-key-row"><span class="ga-chip" style="background:#B08968"></span>Đất trống</div>
+          <div class="ga-key-title">Nguy cơ sạt lở (30m)</div>
+          <div class="ga-key-row"><span class="ga-chip" style="background:#c80c2c;"></span>Điểm nóng ưu tiên (≥ 88%, dốc ≥ 22°)</div>
+          <div class="ga-key-row"><span class="ga-chip" style="background:#dc2626;"></span>Nguy cơ Cao / Khẩn cấp (≥ 69%)</div>
+          <div class="ga-key-row"><span class="ga-chip" style="background:#facc15;"></span>Nguy cơ Trung bình / Theo dõi (37,25% – 69%)</div>
+          <div class="ga-key-row"><span class="ga-chip" style="background:#ffffff;border:1px dashed #cbd5e1;"></span>Nguy cơ Thấp / An toàn (&lt; 37,25% · Ẩn nền)</div>
+          <div class="ga-key-row"><span class="ga-chip" style="background:#0284c7;"></span>Mặt nước (Hồ/Sông — 0%)</div>
+          <div class="ga-key-title">Lớp phủ thực vật (NDVI)</div>
+          <div class="ga-key-row"><span class="ga-chip" style="background:#1F4D2B;"></span>Rừng dày</div>
+          <div class="ga-key-row"><span class="ga-chip" style="background:#A8C686;"></span>Rừng thưa</div>
+          <div class="ga-key-row"><span class="ga-chip" style="background:#B08968;"></span>Đất trống</div>
           <div class="ga-key-title">Vị trí</div>
-          <div class="ga-key-row"><span class="ga-chip" style="background:#EA4335"></span>Điểm bạn chọn</div>
-          <div class="ga-key-row"><span class="ga-chip" style="background:#A8C686;border:2px dashed #1F4D2B"></span>Vùng khảo sát</div>
+          <div class="ga-key-row"><span class="ga-chip" style="background:#EA4335;"></span>Điểm bạn chọn</div>
+          <div class="ga-key-row"><span class="ga-chip" style="background:#dc2626;border:1.5px solid #111827;"></span>Cao nhất trong bán kính</div>
+          <div class="ga-key-row"><span class="ga-chip" style="background:#A8C686;border:2px dashed #1F4D2B;"></span>Vùng khảo sát</div>
         </section>
 
         <div class="ga-warn">
@@ -301,10 +347,12 @@ a{text-decoration-thickness:1px!important;text-underline-offset:.1em}:where(.wp-
 <script data-wp-router-options="{&quot;loadOnClientNavigation&quot;:true}" fetchpriority="low" id="@wordpress/block-library/navigation/view-js-module" src="https://benkz15.github.io/GEOALERT/wp-includes/js/dist/script-modules/block-library/navigation/view.min.js?ver=1bf28ded04f9f188bdcb" type="module"></script>
 <script id="leaflet-js-js" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js?ver=1.9.4"></script>
 <script id="geoalert-data-js" src="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-data.js?ver=1792833232"></script>
-<script id="geoalert-map-js" src="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-map.js?ver=1792836920"></script>
+<script id="geoalert-map-js" src="https://benkz15.github.io/GEOALERT/wp-content/plugins/Geoalert-map/geoalert-map.js?ver=1792836960"></script>
 <script>
-  function zoomToZone(lat, lon, zoom) {
-    if (window.globalGeoAlertMap) {
+  function zoomToZone(lat, lon, zoom, label) {
+    if (typeof window.runGeoAlertZoneSelect === "function") {
+      window.runGeoAlertZoneSelect(lat, lon, zoom, label);
+    } else if (window.globalGeoAlertMap) {
       window.globalGeoAlertMap.flyTo([lat, lon], zoom, { duration: 1 });
     }
   }
