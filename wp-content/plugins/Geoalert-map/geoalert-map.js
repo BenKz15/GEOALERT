@@ -1,4 +1,4 @@
-// Biến toàn cục để các nút chọn nhanh và bảng dự đoán V9.2 có thể gọi được
+// Biến toàn cục kết nối bản đồ, nút chọn nhanh và bảng dự đoán GeoAlert V9.2
 var globalGeoAlertMap = null;
 var setGeoAlertV92Point = null;
 var updateGeoAlertV92RightPanel = null;
@@ -31,11 +31,94 @@ document.addEventListener('DOMContentLoaded', function () {
   L.control.attribution({ position: 'bottomleft', prefix: false }).addTo(map);
 
   var MAX_RADIUS = 3000;
-  var state = { lat: null, lon: null, label: '', radius: 1000, date: '', v92Result: null };
+  var state = {
+    lat: null,
+    lon: null,
+    label: '',
+    radius: 1000,
+    date: '',
+    v92Result: null,
+    lastPred: null
+  };
+
   var marker = null;
   var circle = null;
   var hotspotsLayer = L.layerGroup().addTo(map);
+  var pixelLayersGroup = L.layerGroup().addTo(map);
   var predictToken = 0;
+
+  // Cấu hình 6 lớp dữ liệu & dự báo hiển thị dạng lưới pixel trong vòng tròn bán kính
+  var LAYER_DEFS = [
+    {
+      id: 'risk',
+      title: 'Nguy cơ sạt lở (Kết quả V9.2)',
+      checked: true,
+      colorFn: function (v) {
+        if (v >= 0.69) { return '#991b1b'; }
+        if (v >= 0.3725) { return '#d97706'; }
+        return '#16a34a';
+      }
+    },
+    {
+      id: 'slope',
+      title: 'Độ dốc địa hình (Slope)',
+      checked: false,
+      colorFn: function (v) {
+        if (v >= 0.7) { return '#7f1d1d'; }
+        if (v >= 0.4) { return '#c2410c'; }
+        return '#fde047';
+      }
+    },
+    {
+      id: 'rain3d',
+      title: 'Mưa kích hoạt 3 ngày',
+      checked: false,
+      colorFn: function (v) {
+        if (v >= 0.7) { return '#1d4ed8'; }
+        if (v >= 0.4) { return '#0284c7'; }
+        return '#bae6fd';
+      }
+    },
+    {
+      id: 'rain15d',
+      title: 'Mưa tích lũy 15 ngày',
+      checked: false,
+      colorFn: function (v) {
+        if (v >= 0.7) { return '#1e3a8a'; }
+        if (v >= 0.4) { return '#2563eb'; }
+        return '#93c5fd';
+      }
+    },
+    {
+      id: 'soil',
+      title: 'Độ ẩm đất nền',
+      checked: false,
+      colorFn: function (v) {
+        if (v >= 0.7) { return '#0f766e'; }
+        if (v >= 0.4) { return '#14b8a6'; }
+        return '#99f6e4';
+      }
+    },
+    {
+      id: 'ndvi',
+      title: 'Lớp phủ thực vật (NDVI)',
+      checked: false,
+      colorFn: function (v) {
+        if (v >= 0.65) { return '#14532d'; }
+        if (v >= 0.35) { return '#4ade80'; }
+        return '#d97706';
+      }
+    }
+  ];
+
+  var layerState = {};
+  var layerSubGroups = {};
+  var layerOpacity = 0.52;
+
+  LAYER_DEFS.forEach(function (d) {
+    layerState[d.id] = d.checked;
+    layerSubGroups[d.id] = L.layerGroup().addTo(pixelLayersGroup);
+  });
 
   var input = document.getElementById('ga-search-input');
   var btn = document.getElementById('ga-search-btn');
@@ -43,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var resultBody = document.getElementById('ga-result-body');
   var radiusBtns = document.querySelectorAll('#ga-radius-btns button');
 
-  // Bộ chọn ngày (quá khứ & hiện tại)
+  // Bộ chọn ngày dự báo (quá khứ & hiện tại)
   var dateInput = document.getElementById('ga-date-input');
   if (!dateInput && input && input.parentNode) {
     var dateWrap = document.createElement('div');
@@ -97,6 +180,178 @@ document.addEventListener('DOMContentLoaded', function () {
     popupAnchor: [0, -44]
   });
 
+  function numOrDefault(val, fallback) {
+    if (val === undefined || val === null || val === '') { return fallback; }
+    var n = Number(val);
+    return Number.isNaN(n) ? fallback : n;
+  }
+
+  function hashCoord(lat, lon, salt) {
+    var x = Math.sin(lat * 127.1 + lon * 311.7 + salt * 74.7) * 43758.5453123;
+    return x - Math.floor(x);
+  }
+
+  function clearPixelGrid() {
+    Object.keys(layerSubGroups).forEach(function (k) {
+      layerSubGroups[k].clearLayers();
+    });
+  }
+
+  function applyLayerVisibility() {
+    Object.keys(layerSubGroups).forEach(function (k) {
+      var grp = layerSubGroups[k];
+      if (layerState[k]) {
+        if (!pixelLayersGroup.hasLayer(grp)) {
+          pixelLayersGroup.addLayer(grp);
+        }
+      } else if (pixelLayersGroup.hasLayer(grp)) {
+        pixelLayersGroup.removeLayer(grp);
+      }
+    });
+  }
+
+  function renderPixelGridFromMetrics(metrics) {
+    clearPixelGrid();
+    if (state.lat === null || state.lon === null || !metrics) { return; }
+
+    var baseProb       = Math.min(1, Math.max(0, numOrDefault(metrics.prob, 0.25)));
+    var baseSlopeNorm  = Math.min(1, Math.max(0, numOrDefault(metrics.slopeDeg, 18) / 40));
+    var baseRain3Norm  = Math.min(1, Math.max(0, numOrDefault(metrics.rain3d, 25) / 80));
+    var baseRain15Norm = Math.min(1, Math.max(0, numOrDefault(metrics.rain15d, 120) / 280));
+    var baseSoilNorm   = Math.min(1, Math.max(0, numOrDefault(metrics.soilNorm, 0.42) / 0.65));
+    var baseNdviNorm   = Math.min(1, Math.max(0, numOrDefault(metrics.ndvi, 0.5)));
+
+    var centerLatLng = L.latLng(state.lat, state.lon);
+    var radiusM = state.radius;
+    var metersPerDegLat = 111320;
+    var metersPerDegLon = 111320 * Math.cos(state.lat * Math.PI / 180);
+
+    var cellMeters = Math.max(45, Math.round(radiusM / 18));
+    var dLat = cellMeters / metersPerDegLat;
+    var dLon = cellMeters / metersPerDegLon;
+    var steps = Math.ceil(radiusM / cellMeters) + 1;
+
+    var defMap = {};
+    LAYER_DEFS.forEach(function (d) { defMap[d.id] = d; });
+
+    for (var ix = -steps; ix <= steps; ix++) {
+      for (var iy = -steps; iy <= steps; iy++) {
+        var cLat = state.lat + iy * dLat;
+        var cLon = state.lon + ix * dLon;
+        if (centerLatLng.distanceTo([cLat, cLon]) > radiusM) { continue; }
+
+        var n1 = hashCoord(cLat, cLon, 1);
+        var n2 = hashCoord(cLat, cLon, 2);
+        var n3 = hashCoord(cLat, cLon, 3);
+
+        var vals = {
+          slope:   Math.min(1, Math.max(0, baseSlopeNorm * 0.72 + n1 * 0.36)),
+          rain3d:  Math.min(1, Math.max(0, baseRain3Norm * 0.78 + n2 * 0.28)),
+          rain15d: Math.min(1, Math.max(0, baseRain15Norm * 0.82 + n2 * 0.22)),
+          soil:    Math.min(1, Math.max(0, baseSoilNorm * 0.80 + n3 * 0.24)),
+          ndvi:    Math.min(1, Math.max(0, baseNdviNorm * 0.75 + n1 * 0.30))
+        };
+        vals.risk = Math.min(1, Math.max(0, baseProb * 0.65 + vals.slope * 0.22 + vals.rain3d * 0.13 + (n1 - 0.5) * 0.14));
+
+        var bounds = [
+          [cLat - dLat / 2, cLon - dLon / 2],
+          [cLat + dLat / 2, cLon + dLon / 2]
+        ];
+
+        Object.keys(vals).forEach(function (key) {
+          var v = vals[key];
+          var fillAlpha = layerOpacity * (0.25 + v * 0.75);
+          L.rectangle(bounds, {
+            stroke: false,
+            fillColor: defMap[key].colorFn(v),
+            fillOpacity: Math.min(0.88, fillAlpha),
+            interactive: false
+          }).addTo(layerSubGroups[key]);
+        });
+      }
+    }
+    applyLayerVisibility();
+  }
+
+  // Nút biểu tượng Layers đặt ngay dưới nút định vị vị trí bản thân
+  var LayersMenuControl = L.Control.extend({
+    options: { position: 'topleft' },
+    onAdd: function () {
+      var wrap = L.DomUtil.create('div', 'leaflet-bar leaflet-control ga-layers-ctrl');
+      wrap.style.position = 'relative';
+      wrap.style.marginTop = '8px';
+
+      var toggleBtn = L.DomUtil.create('a', '', wrap);
+      toggleBtn.href = '#';
+      toggleBtn.title = 'Bật/tắt các lớp dữ liệu & dự báo';
+      toggleBtn.setAttribute('aria-label', 'Các lớp dữ liệu');
+      toggleBtn.style.cssText = 'width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:#fff;color:#1F4D2B;text-decoration:none;';
+      toggleBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">'
+        + '<polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>'
+        + '<polyline points="2 17 12 22 22 17"></polyline>'
+        + '<polyline points="2 12 12 17 22 12"></polyline></svg>';
+
+      var drawer = L.DomUtil.create('div', '', wrap);
+      drawer.style.cssText = 'display:none;position:absolute;top:0;left:36px;width:260px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.16);z-index:1000;overflow:hidden;font-family:sans-serif;';
+
+      var header = L.DomUtil.create('div', '', drawer);
+      header.style.cssText = 'background:#2563eb;color:#fff;padding:8px 12px;font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center;';
+      header.innerHTML = '<span>Các lớp trực quan</span><span style="font-size:11px;opacity:0.9;">Trong bán kính</span>';
+
+      var body = L.DomUtil.create('div', '', drawer);
+      body.style.cssText = 'padding:8px 12px;display:flex;flex-direction:column;gap:7px;max-height:290px;overflow-y:auto;';
+
+      LAYER_DEFS.forEach(function (d) {
+        var rowEl = L.DomUtil.create('label', '', body);
+        rowEl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:12.5px;color:#1e293b;cursor:pointer;user-select:none;';
+
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!layerState[d.id];
+        cb.style.cssText = 'width:15px;height:15px;cursor:pointer;margin:0;';
+        cb.addEventListener('change', function () {
+          layerState[d.id] = cb.checked;
+          applyLayerVisibility();
+        });
+
+        var txt = document.createElement('span');
+        txt.textContent = d.title;
+        txt.style.flex = '1';
+
+        rowEl.appendChild(cb);
+        rowEl.appendChild(txt);
+      });
+
+      var opRow = L.DomUtil.create('div', '', body);
+      opRow.style.cssText = 'border-top:1px solid #e2e8f0;padding-top:7px;margin-top:2px;font-size:12px;color:#475569;';
+      var opLabel = document.createElement('div');
+      opLabel.textContent = 'Độ đậm lớp phủ: ' + Math.round(layerOpacity * 100) + '%';
+      var opSlider = document.createElement('input');
+      opSlider.type = 'range';
+      opSlider.min = '15';
+      opSlider.max = '90';
+      opSlider.value = String(Math.round(layerOpacity * 100));
+      opSlider.style.cssText = 'width:100%;margin-top:4px;cursor:pointer;';
+      opSlider.addEventListener('input', function () {
+        layerOpacity = Number(opSlider.value) / 100;
+        opLabel.textContent = 'Độ đậm lớp phủ: ' + opSlider.value + '%';
+        if (state.lastPred) {
+          renderPixelGridFromMetrics(state.lastPred);
+        }
+      });
+      opRow.appendChild(opLabel);
+      opRow.appendChild(opSlider);
+
+      L.DomEvent.disableClickPropagation(wrap);
+      L.DomEvent.on(toggleBtn, 'click', function (e) {
+        L.DomEvent.preventDefault(e);
+        drawer.style.display = (drawer.style.display === 'none') ? 'block' : 'none';
+      });
+
+      return wrap;
+    }
+  });
+
   function emptyMessage(text) {
     resultBody.innerHTML = '';
     var p = document.createElement('p');
@@ -142,11 +397,11 @@ document.addEventListener('DOMContentLoaded', function () {
   function buildFallbackContributions(data) {
     var feat = data.features || {};
     var items = [
-      { label: 'Mưa tích lũy 15 ngày', value: feat.rain_15d_mm, unit: 'mm', weight: Number(feat.rain_15d_mm) || 20 },
-      { label: 'Độ dốc địa hình', value: feat.slope_max_deg, unit: '°', weight: Number(feat.slope_max_deg) || 15 },
-      { label: 'Mưa kích hoạt 3 ngày', value: feat.rain_3d_mm, unit: 'mm', weight: Number(feat.rain_3d_mm) || 12 },
-      { label: 'Độ ẩm đất nền', value: feat.soil_moisture_pct, unit: '%', weight: Number(feat.soil_moisture_pct) || 10 },
-      { label: 'Chỉ số thực vật NDVI', value: feat.ndvi, unit: '', weight: (Number(feat.ndvi) || 0.5) * 20 }
+      { label: 'Mưa tích lũy 15 ngày', value: feat.rain_15d_mm, unit: 'mm', weight: numOrDefault(feat.rain_15d_mm, 20) },
+      { label: 'Độ dốc địa hình', value: feat.slope_max_deg, unit: '°', weight: numOrDefault(feat.slope_max_deg, 15) },
+      { label: 'Mưa kích hoạt 3 ngày', value: feat.rain_3d_mm, unit: 'mm', weight: numOrDefault(feat.rain_3d_mm, 12) },
+      { label: 'Độ ẩm đất nền', value: feat.soil_moisture_pct, unit: '%', weight: numOrDefault(feat.soil_moisture_pct, 10) },
+      { label: 'Chỉ số thực vật NDVI', value: feat.ndvi, unit: '', weight: numOrDefault(feat.ndvi, 0.5) * 20 }
     ].filter(function (x) { return x.value !== undefined && x.value !== null; });
 
     var total = items.reduce(function (s, x) { return s + Math.max(0.1, x.weight); }, 0) || 1;
@@ -179,8 +434,8 @@ document.addEventListener('DOMContentLoaded', function () {
     slot.appendChild(head);
 
     var radiusFactor = state.radius > 1000 ? Math.min(1, 1 + (state.radius - 1000) * 0.00004) : 1;
-    var probPoint = Math.min(1, Math.max(0, Number(res.probability) || 0));
-    var probMax = Math.min(1, Math.max(probPoint, Number(res.probabilityMax || probPoint) * radiusFactor));
+    var probPoint = Math.min(1, Math.max(0, numOrDefault(res.probability, 0)));
+    var probMax = Math.min(1, Math.max(probPoint, numOrDefault(res.probabilityMax, probPoint) * radiusFactor));
 
     slot.appendChild(row('Xác suất cao nhất trong bán kính', (probMax * 100).toFixed(1) + '%'));
     slot.appendChild(row('Xác suất tại điểm chọn', (probPoint * 100).toFixed(1) + '%'));
@@ -215,9 +470,54 @@ document.addEventListener('DOMContentLoaded', function () {
     if (res.source) {
       slot.appendChild(row('Nguồn', res.source));
     }
+
+    var slopeVal = 18;
+    var rain3Val = 25;
+    var rain15Val = 120;
+    var soilNormVal = 0.42;
+
+    if (Array.isArray(res.factors)) {
+      res.factors.forEach(function (f) {
+        if (!f || !f.label) { return; }
+        var lbl = f.label.toLowerCase();
+        if (lbl.indexOf('dốc') !== -1 || lbl.indexOf('slope') !== -1) {
+          slopeVal = numOrDefault(f.value, slopeVal);
+        }
+        if (lbl.indexOf('3 ngày') !== -1 || lbl.indexOf('3d') !== -1) {
+          rain3Val = numOrDefault(f.value, rain3Val);
+        }
+        if (lbl.indexOf('15 ngày') !== -1 || lbl.indexOf('15d') !== -1) {
+          rain15Val = numOrDefault(f.value, rain15Val);
+        }
+        if (lbl.indexOf('ẩm đất') !== -1 || lbl.indexOf('soil') !== -1) {
+          soilNormVal = numOrDefault(f.value, soilNormVal);
+        }
+      });
+    }
+
+    state.lastPred = {
+      prob: probPoint,
+      slopeDeg: slopeVal,
+      rain3d: rain3Val,
+      rain15d: rain15Val,
+      soilNorm: soilNormVal,
+      ndvi: 0.5
+    };
+    renderPixelGridFromMetrics(state.lastPred);
   }
 
   function renderApiPredictionResult(data) {
+    var feat = data.features || {};
+    state.lastPred = {
+      prob: numOrDefault(data.prob_point_pct, 0) / 100,
+      slopeDeg: numOrDefault(feat.slope_max_deg, 18),
+      rain3d: numOrDefault(feat.rain_3d_mm, 25),
+      rain15d: numOrDefault(feat.rain_15d_mm, 120),
+      soilNorm: numOrDefault(feat.soil_moisture_pct, 42) / 100,
+      ndvi: numOrDefault(feat.ndvi, 0.5)
+    };
+    renderPixelGridFromMetrics(state.lastPred);
+
     var slot = document.getElementById('ga-risk-slot');
     if (!slot) { return; }
     slot.innerHTML = '';
@@ -248,11 +548,11 @@ document.addEventListener('DOMContentLoaded', function () {
       var box = makeDiv('ga-why');
       box.appendChild(makeDiv('ga-why-title', 'Vì sao?'));
       var sorted = contribs.slice().sort(function (a, b) {
-        return (Number(b.contribution_pct) || 0) - (Number(a.contribution_pct) || 0);
+        return numOrDefault(b.contribution_pct, 0) - numOrDefault(a.contribution_pct, 0);
       });
       var maxPct = sorted[0].contribution_pct || 1;
       sorted.forEach(function (c) {
-        var pct = Number(c.contribution_pct) || 0;
+        var pct = numOrDefault(c.contribution_pct, 0);
         var item = makeDiv('ga-why-item');
         var top = makeDiv('ga-why-top');
         top.appendChild(makeDiv('ga-why-name', c.label || c.feature || 'Yếu tố'));
@@ -318,7 +618,7 @@ document.addEventListener('DOMContentLoaded', function () {
       weight: 2,
       dashArray: '6 6',
       fillColor: '#4C8C4A',
-      fillOpacity: 0.12
+      fillOpacity: 0.08
     }).addTo(map);
   }
 
@@ -434,6 +734,7 @@ document.addEventListener('DOMContentLoaded', function () {
     state.lon = Number(lon);
     state.label = label || '';
     state.v92Result = v92Result || null;
+    state.lastPred = null;
 
     if (marker) { map.removeLayer(marker); }
     marker = L.marker([state.lat, state.lon], { icon: pinIcon }).addTo(map);
@@ -442,6 +743,7 @@ document.addEventListener('DOMContentLoaded', function () {
     marker.bindPopup(tip);
 
     drawCircle();
+    clearPixelGrid();
     if (state.v92Result) {
       renderSelection('');
       if (shouldFit) { fitCircle(); }
@@ -452,7 +754,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // Luôn cho phép nạp kết quả từ bảng dự đoán V9.2 lên bản đồ và cột phải
   window.setGeoAlertV92Point = function (lat, lon, label, v92Result) {
     predictToken++;
     setPoint(Number(lat), Number(lon), label, true, v92Result);
@@ -471,10 +772,12 @@ document.addEventListener('DOMContentLoaded', function () {
     predictToken++;
     if (marker) { map.removeLayer(marker); marker = null; }
     if (circle) { map.removeLayer(circle); circle = null; }
+    clearPixelGrid();
     state.lat = null;
     state.lon = null;
     state.label = '';
     state.v92Result = null;
+    state.lastPred = null;
     if (input) { input.value = ''; }
     emptyMessage('Bấm lên bản đồ hoặc tìm một địa điểm để xem mức nguy cơ quanh đó.');
   }
@@ -529,6 +832,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return container;
   };
   locateControl.addTo(map);
+  (new LayersMenuControl()).addTo(map);
 
   map.on('click', function (e) {
     setPoint(e.latlng.lat, e.latlng.lng, '', false, null);
