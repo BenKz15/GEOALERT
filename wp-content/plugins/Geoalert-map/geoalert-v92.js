@@ -53,6 +53,24 @@
           date: "2025-11-19",
           expected: "Cao",
           note: "Cùng tọa độ thực địa sự cố sạt lở Đèo Mimosa ngày 19/11/2025."
+        },
+        {
+          id: "prenn_20230623",
+          label: "#5 · Đèo Prenn — Điểm khảo sát thực địa (23/06/2023)",
+          lat: 11.896950,
+          lon: 108.451639,
+          date: "2023-06-23",
+          expected: "Trung bình / Cao",
+          note: "Tọa độ Placemark Google Earth 11°53'49.02\"N 108°27'05.90\"E (cao độ 1,337.06m)."
+        },
+        {
+          id: "khanhle_20241215",
+          label: "#6 · Đèo Khánh Lê — Điểm khảo sát thực địa (15/12/2024)",
+          lat: 12.222164,
+          lon: 108.772731,
+          date: "2024-12-15",
+          expected: "Cao",
+          note: "Tọa độ Placemark Google Earth 12°13'19.79\"N 108°46'21.83\"E (cao độ 510.89m)."
         }
       ]
     },
@@ -61,7 +79,7 @@
       items: [
         {
           id: "baoloc_dry_20230215",
-          label: "#5 · Đèo Bảo Lộc — Đối chứng Mùa khô (15/02/2023)",
+          label: "#7 · Đèo Bảo Lộc — Đối chứng Mùa khô (15/02/2023)",
           lat: 11.455536,
           lon: 107.717375,
           date: "2023-02-15",
@@ -70,12 +88,30 @@
         },
         {
           id: "mimosa_dry_20250215",
-          label: "#6 · Đèo Mimosa — Đối chứng Mùa khô (15/02/2025)",
+          label: "#8 · Đèo Mimosa — Đối chứng Mùa khô (15/02/2025)",
           lat: 11.904572,
           lon: 108.463161,
           date: "2025-02-15",
           expected: "Thấp (An toàn)",
           note: "Cùng tọa độ vết sạt 19/11/2025 nhưng vào mùa khô để đối chứng phản ứng theo mưa."
+        },
+        {
+          id: "prenn_dry_20230215",
+          label: "#9 · Đèo Prenn — Đối chứng Mùa khô (15/02/2023)",
+          lat: 11.896950,
+          lon: 108.451639,
+          date: "2023-02-15",
+          expected: "Thấp (An toàn)",
+          note: "Cùng tọa độ Google Earth Đèo Prenn nhưng vào mùa khô để đối chứng."
+        },
+        {
+          id: "khanhle_dry_20230215",
+          label: "#10 · Đèo Khánh Lê — Đối chứng Mùa khô (15/02/2023)",
+          lat: 12.222164,
+          lon: 108.772731,
+          date: "2023-02-15",
+          expected: "Thấp (An toàn)",
+          note: "Cùng tọa độ Google Earth Đèo Khánh Lê nhưng vào mùa khô để đối chứng."
         }
       ]
     },
@@ -84,7 +120,7 @@
       items: [
         {
           id: "lamvien_flat",
-          label: "#7 · Quảng trường Lâm Viên — Đà Lạt (Bằng phẳng)",
+          label: "#11 · Quảng trường Lâm Viên — Đà Lạt (Bằng phẳng)",
           lat: 11.9392,
           lon: 108.4419,
           date: "2023-07-30",
@@ -93,7 +129,7 @@
         },
         {
           id: "lienkhuong_flat",
-          label: "#8 · Sân bay Liên Khương — Đức Trọng (Bằng phẳng)",
+          label: "#12 · Sân bay Liên Khương — Đức Trọng (Bằng phẳng)",
           lat: 11.7519,
           lon: 108.3711,
           date: "2023-07-30",
@@ -102,7 +138,7 @@
         },
         {
           id: "baoloc_city_flat",
-          label: "#9 · Trung tâm TP. Bảo Lộc (Bằng phẳng)",
+          label: "#13 · Trung tâm TP. Bảo Lộc (Bằng phẳng)",
           lat: 11.5458,
           lon: 107.8055,
           date: "2023-07-30",
@@ -111,7 +147,7 @@
         },
         {
           id: "liennghia_flat",
-          label: "#10 · Thị trấn Liên Nghĩa — Đức Trọng (Bằng phẳng)",
+          label: "#14 · Thị trấn Liên Nghĩa — Đức Trọng (Bằng phẳng)",
           lat: 11.7355,
           lon: 108.3735,
           date: "2023-07-30",
@@ -120,7 +156,7 @@
         },
         {
           id: "cattien_flat",
-          label: "#11 · Thị trấn Cát Tiên (Đồng bằng chuẩn)",
+          label: "#15 · Thị trấn Cát Tiên (Đồng bằng chuẩn)",
           lat: 11.5664,
           lon: 107.3676,
           date: "2023-07-30",
@@ -129,7 +165,7 @@
         },
         {
           id: "baoloc_lake_water",
-          label: "#12 · Mặt nước hồ Bảo Lộc (Test lọc mặt nước Water Mask)",
+          label: "#16 · Mặt nước hồ Bảo Lộc (Test lọc mặt nước Water Mask)",
           lat: 11.57113,
           lon: 107.81668,
           date: "2023-07-30",
