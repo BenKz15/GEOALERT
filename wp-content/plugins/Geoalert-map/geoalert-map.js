@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function () {
   function updateMaxRadiusMarker(data) {
     clearMaxRadiusMarker();
     var mr = data && data.max_in_radius;
-    if (!mr || mr.distance_m < 25 || mr.prob_pct < 37.25) { return; }
+    if (!mr || mr.distance_m < 25 || mr.prob_pct < 50) { return; }
 
     var pinColor = mr.tier_code === 'red' ? '#dc2626' : '#eab308';
     maxRadiusLine = L.polyline(
@@ -291,7 +291,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Khối phụ Tham khảo trong bán kính (max_in_radius)
     var mr = data.max_in_radius;
     if (mr) {
-      var isHighRef = Number(mr.prob_pct) >= 37.25;
+      var isHighRef = Number(mr.prob_pct) >= 50;
       var refBox = makeDiv('ga-max-ref' + (isHighRef ? '' : ' is-safe'));
       refBox.appendChild(makeDiv('ga-max-ref-title', 'Tham khảo trong bán kính'));
       refBox.appendChild(makeDiv('', 'Cao nhất trong bán kính: ' + mr.prob_pct + '% (' + mr.risk_level + ')'));
