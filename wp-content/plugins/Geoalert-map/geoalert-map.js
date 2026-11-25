@@ -618,11 +618,21 @@ document.addEventListener('DOMContentLoaded', function () {
           var lat = Number(pt.lat !== undefined ? pt.lat : pt.latitude);
           var lon = Number(pt.lon !== undefined ? pt.lon : pt.longitude);
           if (Number.isNaN(lat) || Number.isNaN(lon)) { return; }
+
+          var title = pt.name || pt.place || 'Điểm trọng điểm';
+          var keyCheck = ((pt.id || '') + ' ' + (pt.zone || '') + ' ' + title).toLowerCase();
+          if (keyCheck.indexOf('đà lạt') !== -1 || keyCheck.indexOf('da lat') !== -1 || keyCheck.indexOf('dalat') !== -1) {
+            lat = 11.939272;
+            lon = 108.461561;
+          } else if (keyCheck.indexOf('prenn') !== -1) {
+            lat = 11.896950;
+            lon = 108.451639;
+          }
+
           var color = tierColor(pt.tier_code);
           var probText = (pt.prob_pct !== undefined && pt.prob_pct !== null)
             ? (Number(pt.prob_pct).toFixed(1) + '%')
             : ((pt.prob !== undefined) ? ((Number(pt.prob) * 100).toFixed(1) + '%') : '');
-          var title = pt.name || pt.place || 'Điểm trọng điểm';
 
           var cm = L.circleMarker([lat, lon], {
             radius: 8,
