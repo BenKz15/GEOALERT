@@ -720,11 +720,76 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  function applyHemisphere(val, dir, isLat, isVietnamese) {
+    var num = Math.abs(val);
+    if (!dir) { return val; }
+    var d = dir.toUpperCase();
+    if (isLat) {
+      if (d === 'S' || (d === 'N' && isVietnamese)) { return -num; }
+      return num; // 'B' (Bắc) hoặc 'N' (North)
+    } else {
+      if (d === 'W' || d === 'T') { return -num; }
+      return num; // 'Đ' (Đông) hoặc 'E' (East)
+    }
+  }
+
+  function parseCoordinates(raw) {
+    var text = raw.trim();
+
+    // 1. Tọa độ Độ - Phút - Giây (DMS) tiếng Việt & Anh: vd 11°16'26.4"B 107°51'18.0"Đ hoặc 11°27'19.93"N 107°43'02.55"E
+    var dmsRegex = /^(\d{1,3})\s*[°º]\s*(\d{1,2})\s*['′’]\s*(\d{1,2}(?:\.\d+)?)\s*(?:["″”]|'')?\s*([BbNnSs])\s*[,;\s]+\s*(\d{1,3})\s*[°º]\s*(\d{1,2})\s*['′’]\s*(\d{1,2}(?:\.\d+)?)\s*(?:["″”]|'')?\s*([ĐđEeWwTt])$/;
+    var dmsMatch = text.match(dmsRegex);
+    if (dmsMatch) {
+      var isViDms = /[BbĐđTt]/.test(dmsMatch[4] + dmsMatch[8]);
+      var latDms = Number(dmsMatch[1]) + Number(dmsMatch[2]) / 60 + Number(dmsMatch[3]) / 3600;
+      var lonDms = Number(dmsMatch[5]) + Number(dmsMatch[6]) / 60 + Number(dmsMatch[7]) / 3600;
+      latDms = applyHemisphere(latDms, dmsMatch[4], true, isViDms);
+      lonDms = applyHemisphere(lonDms, dmsMatch[8], false, isViDms);
+      if (Math.abs(latDms) <= 90 && Math.abs(lonDms) <= 180) {
+        return { lat: latDms, lon: lonDms };
+      }
+    }
+
+    // 2. Tọa độ Độ thập phân (DD) có hoặc không có ký hiệu °, B/Đ, N/E: vd 11.274°B, 107.855°Đ hoặc 11.274, 107.855
+    var ddRegex = /^([+-]?\d+(?:\.\d+)?)\s*[°º]?\s*([BbNnSs])?\s*[,;\s]+\s*([+-]?\d+(?:\.\d+)?)\s*[°º]?\s*([ĐđEeWwTt])?$/;
+    var ddMatch = text.match(ddRegex);
+    if (ddMatch) {
+      var a = Number(ddMatch[1]);
+      var latDir = ddMatch[2] || '';
+      var b = Number(ddMatch[3]);
+      var lonDir = ddMatch[4] || '';
+      if (!Number.isNaN(a) && !Number.isNaN(b)) {
+        // Tự động đảo chiều nếu người dùng dán ngược (Kinh độ ~107-109 trước, Vĩ độ ~11-12 sau)
+        if (!latDir && !lonDir && Math.abs(a) > 90 && Math.abs(a) <= 180 && Math.abs(b) <= 90) {
+          return { lat: b, lon: a };
+        }
+        var isViDd = /[BbĐđTt]/.test(latDir + lonDir);
+        var lat = applyHemisphere(a, latDir, true, isViDd);
+        var lon = applyHemisphere(b, lonDir, false, isViDd);
+        if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+          return { lat: lat, lon: lon };
+        }
+      }
+    }
+
+    return null;
+  }
+
   function doSearch() {
     if (!input || !list || isPredicting) { return; }
     var q = input.value.trim();
     list.innerHTML = '';
     if (!q) { return; }
+
+    // Nếu nhập tọa độ -> nhảy thẳng tới điểm đó và chạy dự báo
+    var coords = parseCoordinates(q);
+    if (coords) {
+      var coordLabel = 'Tọa độ: ' + coords.lat.toFixed(6) + ', ' + coords.lon.toFixed(6);
+      setPoint(coords.lat, coords.lon, coordLabel, true, 15);
+      return;
+    }
+
+    // Nếu nhập chữ -> tìm tên địa điểm qua Photon như cũ
     var url = 'https://photon.komoot.io/api/?q=' + encodeURIComponent(q)
             + '&bbox=107.30,11.15,108.85,12.30&limit=5';
     fetch(url)
@@ -740,8 +805,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         feats.forEach(function (f) {
           var p = f.properties || {};
-          var coords = f.geometry && f.geometry.coordinates;
-          if (!coords) { return; }
+          var geomCoords = f.geometry && f.geometry.coordinates;
+          if (!geomCoords) { return; }
           var parts = [p.name, p.street, p.district, p.city, p.state].filter(Boolean);
           var label = parts.join(', ') || q;
           var li = document.createElement('li');
@@ -749,7 +814,7 @@ document.addEventListener('DOMContentLoaded', function () {
           li.addEventListener('click', function () {
             list.innerHTML = '';
             input.value = label;
-            setPoint(coords[1], coords[0], label, true, null);
+            setPoint(geomCoords[1], geomCoords[0], label, true, null);
           });
           list.appendChild(li);
         });
