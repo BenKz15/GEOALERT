@@ -619,14 +619,21 @@ document.addEventListener('DOMContentLoaded', function () {
           var lon = Number(pt.lon !== undefined ? pt.lon : pt.longitude);
           if (Number.isNaN(lat) || Number.isNaN(lon)) { return; }
 
-          var title = pt.name || pt.place || 'Điểm trọng điểm';
-          var keyCheck = ((pt.id || '') + ' ' + (pt.zone || '') + ' ' + title).toLowerCase();
-          if (keyCheck.indexOf('đà lạt') !== -1 || keyCheck.indexOf('da lat') !== -1 || keyCheck.indexOf('dalat') !== -1) {
+          var rawText = JSON.stringify(pt).toLowerCase();
+          var isDaLat = rawText.indexOf('đà lạt') !== -1 || rawText.indexOf('da lat') !== -1 || rawText.indexOf('dalat') !== -1
+                     || (Math.abs(lat - 11.939272) < 0.006 && Math.abs(lon - 108.461561) < 0.006);
+          var isPrenn = rawText.indexOf('prenn') !== -1
+                     || (Math.abs(lat - 11.896950) < 0.006 && Math.abs(lon - 108.451639) < 0.006);
+
+          var title = pt.name || pt.label || pt.place || 'Điểm trọng điểm';
+          if (isDaLat) {
             lat = 11.939272;
             lon = 108.461561;
-          } else if (keyCheck.indexOf('prenn') !== -1) {
+            if (!pt.name && !pt.label && !pt.place) { title = 'Trung tâm Đà Lạt'; }
+          } else if (isPrenn) {
             lat = 11.896950;
             lon = 108.451639;
+            if (!pt.name && !pt.label && !pt.place) { title = 'Đèo Prenn'; }
           }
 
           var color = tierColor(pt.tier_code);
