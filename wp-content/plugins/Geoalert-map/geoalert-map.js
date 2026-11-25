@@ -403,16 +403,16 @@ document.addEventListener('DOMContentLoaded', function () {
     setOverlayStatus('Đang tải lớp bản đồ...');
     try {
       var res = await fetch(API_BASE + '/overlay', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        lat: Number(center.lat),
-        lon: Number(center.lng !== undefined ? center.lng : center.lon),
-        radius_m: Number(state.radius),
-        date: state.date || null,
-        layer: layerName
-      })
-    });
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lat: Number(center.lat),
+          lon: Number(center.lng !== undefined ? center.lng : center.lon),
+          radius_m: Number(state.radius),
+          date: state.date || null,
+          layer: layerName
+        })
+      });
       if (!res.ok) {
         var err = await res.json().catch(function () { return {}; });
         throw new Error(err.detail || ('Không tải được lớp bản đồ ' + layerName));
@@ -604,7 +604,99 @@ document.addEventListener('DOMContentLoaded', function () {
     return '#16a34a';
   }
 
+  // 5 chấm trọng điểm cố định (đã đồng bộ đúng tọa độ Đà Lạt & Đèo Prenn hiện tại)
+  var DEFAULT_HOTSPOTS = [
+    { name: 'Trung tâm Đà Lạt', lat: 11.939272, lon: 108.461561 },
+    { name: 'Đèo Prenn',        lat: 11.896950, lon: 108.451639 },
+    { name: 'Đèo Mimosa',       lat: 11.904572, lon: 108.463161 },
+    { name: 'Đèo Khánh Lê',     lat: 12.222164, lon: 108.772731 },
+    { name: 'Đèo Bảo Lộc',      lat: 11.455536, lon: 107.717375 }
+  ];
+
+  function matchFixedHotspot(pt, lat, lon) {
+    var raw = JSON.stringify(pt).toLowerCase();
+    if (raw.indexOf('mimosa') !== -1) { return DEFAULT_HOTSPOTS[2]; }
+    if (raw.indexOf('khánh lê') !== -1 || raw.indexOf('khanh le') !== -1) { return DEFAULT_HOTSPOTS[3]; }
+    if (raw.indexOf('bảo lộc') !== -1 || raw.indexOf('bao loc') !== -1) { return DEFAULT_HOTSPOTS[4]; }
+    if (raw.indexOf('đà lạt') !== -1 || raw.indexOf('da lat') !== -1 || raw.indexOf('dalat') !== -1
+        || (Math.abs(lat - 11.939272) < 0.015 && Math.abs(lon - 108.459000) < 0.015)) {
+      return DEFAULT_HOTSPOTS[0];
+    }
+    if (raw.indexOf('prenn') !== -1
+        || (lon < 108.457 && Math.abs(lat - 11.898000) < 0.015 && Math.abs(lon - 108.448000) < 0.015)) {
+      return DEFAULT_HOTSPOTS[1];
+    }
+    return null;
+  }
+
+  function renderHotspotMarkers(listItems) {
+    hotspotsLayer.clearLayers();
+    var seenNames = {};
+    var mergedList = [];
+
+    listItems.forEach(function (pt) {
+      var lat = Number(pt.lat !== undefined ? pt.lat : pt.latitude);
+      var lon = Number(pt.lon !== undefined ? pt.lon : pt.longitude);
+      if (Number.isNaN(lat) || Number.isNaN(lon)) { return; }
+
+      var fixed = matchFixedHotspot(pt, lat, lon);
+      var title = fixed ? fixed.name : (pt.name || pt.label || pt.place || 'Điểm trọng điểm');
+      if (fixed) {
+        lat = fixed.lat;
+        lon = fixed.lon;
+        seenNames[fixed.name] = true;
+      }
+      mergedList.push({
+        title: title,
+        lat: lat,
+        lon: lon,
+        tier_code: pt.tier_code,
+        prob_pct: pt.prob_pct,
+        prob: pt.prob
+      });
+    });
+
+    // Bảo đảm 5 chấm trọng điểm luôn hiển thị đầy đủ dù API trả thiếu
+    DEFAULT_HOTSPOTS.forEach(function (def) {
+      if (!seenNames[def.name]) {
+        mergedList.push({
+          title: def.name,
+          lat: def.lat,
+          lon: def.lon,
+          tier_code: 'green',
+          prob_pct: null,
+          prob: undefined
+        });
+      }
+    });
+
+    mergedList.forEach(function (item) {
+      var color = tierColor(item.tier_code);
+      var probText = (item.prob_pct !== undefined && item.prob_pct !== null)
+        ? (Number(item.prob_pct).toFixed(1) + '%')
+        : ((item.prob !== undefined) ? ((Number(item.prob) * 100).toFixed(1) + '%') : '');
+
+      var cm = L.circleMarker([item.lat, item.lon], {
+        radius: 8,
+        fillColor: color,
+        color: '#ffffff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.92
+      });
+      cm.bindTooltip(item.title + (probText ? (' — ' + probText) : ''));
+      cm.on('click', function (ev) {
+        L.DomEvent.stopPropagation(ev);
+        if (!isPredicting) {
+          setPoint(item.lat, item.lon, item.title, true, 15);
+        }
+      });
+      cm.addTo(hotspotsLayer);
+    });
+  }
+
   function loadHotspots(dateStr) {
+    renderHotspotMarkers(DEFAULT_HOTSPOTS);
     var query = dateStr ? ('?date=' + encodeURIComponent(dateStr)) : '';
     fetch(API_BASE + '/hotspots' + query)
       .then(function (res) {
@@ -612,52 +704,10 @@ document.addEventListener('DOMContentLoaded', function () {
         return res.json();
       })
       .then(function (data) {
-        hotspotsLayer.clearLayers();
         var items = Array.isArray(data) ? data : (data.hotspots || data.items || []);
-        items.forEach(function (pt) {
-          var lat = Number(pt.lat !== undefined ? pt.lat : pt.latitude);
-          var lon = Number(pt.lon !== undefined ? pt.lon : pt.longitude);
-          if (Number.isNaN(lat) || Number.isNaN(lon)) { return; }
-
-          var rawText = JSON.stringify(pt).toLowerCase();
-          var isDaLat = rawText.indexOf('đà lạt') !== -1 || rawText.indexOf('da lat') !== -1 || rawText.indexOf('dalat') !== -1
-                     || (Math.abs(lat - 11.939272) < 0.006 && Math.abs(lon - 108.461561) < 0.006);
-          var isPrenn = rawText.indexOf('prenn') !== -1
-                     || (Math.abs(lat - 11.896950) < 0.006 && Math.abs(lon - 108.451639) < 0.006);
-
-          var title = pt.name || pt.label || pt.place || 'Điểm trọng điểm';
-          if (isDaLat) {
-            lat = 11.939272;
-            lon = 108.461561;
-            if (!pt.name && !pt.label && !pt.place) { title = 'Trung tâm Đà Lạt'; }
-          } else if (isPrenn) {
-            lat = 11.896950;
-            lon = 108.451639;
-            if (!pt.name && !pt.label && !pt.place) { title = 'Đèo Prenn'; }
-          }
-
-          var color = tierColor(pt.tier_code);
-          var probText = (pt.prob_pct !== undefined && pt.prob_pct !== null)
-            ? (Number(pt.prob_pct).toFixed(1) + '%')
-            : ((pt.prob !== undefined) ? ((Number(pt.prob) * 100).toFixed(1) + '%') : '');
-
-          var cm = L.circleMarker([lat, lon], {
-            radius: 8,
-            fillColor: color,
-            color: '#ffffff',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.92
-          });
-          cm.bindTooltip(title + (probText ? (' — ' + probText) : ''));
-          cm.on('click', function (ev) {
-            L.DomEvent.stopPropagation(ev);
-            if (!isPredicting) {
-              setPoint(lat, lon, title, true, 15);
-            }
-          });
-          cm.addTo(hotspotsLayer);
-        });
+        if (items.length > 0) {
+          renderHotspotMarkers(items);
+        }
       })
       .catch(function (err) {
         console.warn('GEOALERT hotspots:', err);
