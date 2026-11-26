@@ -180,6 +180,41 @@ document.addEventListener('DOMContentLoaded', function () {
     return d;
   }
 
+  // Điểm A: Xóa sạch toàn bộ lớp phủ overlay cũ khi lỗi 503 / mất mạng (tránh sót lớp Xanh giả)
+  function clearAllActiveOverlays() {
+    ['hotspot', 'zoning', 'ndvi'].forEach(function (k) {
+      overlayState[k] = false;
+      if (activeOverlays[k]) {
+        map.removeLayer(activeOverlays[k]);
+        activeOverlays[k] = null;
+      }
+    });
+    syncOverlayCheckboxes();
+  }
+
+  // Điểm A: Hiển thị khung cảnh báo Fail-Loud màu xám/cam thay cho thẻ kết quả cũ
+  function renderFailLoudWarning(detailMsg) {
+    var slot = document.getElementById('ga-risk-slot');
+    if (!slot) { return; }
+    slot.innerHTML = '';
+    slot.className = 'ga-risk';
+
+    var warnBox = document.createElement('div');
+    warnBox.style.cssText = 'padding:12px 14px;border-radius:10px;background:#fff7ed;border:1.5px solid #ea580c;color:#4b5563;font-size:13.5px;line-height:1.5;';
+
+    var titleEl = document.createElement('div');
+    titleEl.style.cssText = 'font-weight:700;color:#c2410c;margin-bottom:4px;';
+    titleEl.textContent = '⚠️ ' + (detailMsg || 'Tạm gián đoạn dữ liệu khí tượng.');
+
+    var subEl = document.createElement('div');
+    subEl.style.cssText = 'font-weight:600;color:#374151;font-size:12.5px;';
+    subEl.textContent = 'Chưa thể đánh giá nguy cơ — không dùng làm căn cứ lưu thông.';
+
+    warnBox.appendChild(titleEl);
+    warnBox.appendChild(subEl);
+    slot.appendChild(warnBox);
+  }
+
   // Vẽ / xóa ghim phụ chỉ đúng điểm nguy cơ cao nhất trong bán kính trên Leaflet
   function clearMaxRadiusMarker() {
     if (maxRadiusMarker) { map.removeLayer(maxRadiusMarker); maxRadiusMarker = null; }
@@ -189,7 +224,7 @@ document.addEventListener('DOMContentLoaded', function () {
   function updateMaxRadiusMarker(data) {
     clearMaxRadiusMarker();
     var mr = data && data.max_in_radius;
-    if (!mr || mr.distance_m < 25 || mr.prob_pct < 50) { return; }
+    if (!mr || mr.distance_m < 25 || mr.prob_pct === null || mr.prob_pct === undefined || mr.prob_pct < 50) { return; }
 
     var pinColor = mr.tier_code === 'red' ? '#dc2626' : '#eab308';
     maxRadiusLine = L.polyline(
@@ -212,7 +247,7 @@ document.addEventListener('DOMContentLoaded', function () {
       .addTo(map);
   }
 
-  // Render khối giải thích "Vì sao?"
+  // Điểm C: Render khối giải thích "Vì sao?" (4 yếu tố Exact Group Shapley + khung NDVI tham khảo tách biệt)
   function renderWhySection(containerEl, data) {
     if (!containerEl || !data) { return; }
     var cObj = data.contributions || {};
@@ -220,15 +255,14 @@ document.addEventListener('DOMContentLoaded', function () {
     var factors = (Array.isArray(data.why_factors) && data.why_factors.length > 0)
       ? data.why_factors
       : [
-          { label: 'Độ dốc địa hình (30m)', contribution_pct: cObj.slope !== undefined ? cObj.slope : 25, value: feat.slope_point_deg !== undefined ? feat.slope_point_deg : '-', unit: '°' },
-          { label: 'Mưa 15 ngày (CHIRPS)', contribution_pct: cObj.rain_15d !== undefined ? cObj.rain_15d : 25, value: feat.rain_15d_mm !== undefined ? feat.rain_15d_mm : '-', unit: 'mm' },
-          { label: 'Mưa 3 ngày (GPM)', contribution_pct: cObj.rain_3d !== undefined ? cObj.rain_3d : 15, value: feat.rain_3d_mm !== undefined ? feat.rain_3d_mm : '-', unit: 'mm' },
-          { label: 'Độ ẩm đất nền', contribution_pct: cObj.soil_moisture !== undefined ? cObj.soil_moisture : 20, value: feat.soil_moisture_pct !== undefined ? feat.soil_moisture_pct : '-', unit: '%' },
-          { label: 'Thảm phủ thực vật (NDVI)', contribution_pct: cObj.ndvi !== undefined ? cObj.ndvi : 15, value: feat.ndvi !== undefined ? feat.ndvi : '-', unit: '' }
+          { key: 'slope', label: 'Độ dốc địa hình (30m)', contribution_pct: cObj.slope !== undefined ? cObj.slope : 0, value: feat.slope_point_deg !== undefined ? feat.slope_point_deg : '-', unit: '°' },
+          { key: 'rain_15d', label: 'Mưa 15 ngày (CHIRPS)', contribution_pct: cObj.rain_15d !== undefined ? cObj.rain_15d : 0, value: feat.rain_15d_mm !== undefined ? feat.rain_15d_mm : '-', unit: 'mm' },
+          { key: 'rain_3d', label: 'Mưa ngắn hạn 1–3 ngày', contribution_pct: cObj.rain_3d !== undefined ? cObj.rain_3d : 0, value: feat.rain_3d_mm !== undefined ? feat.rain_3d_mm : '-', unit: 'mm' },
+          { key: 'soil_moisture', label: 'Độ ẩm đất nền', contribution_pct: cObj.soil_moisture !== undefined ? cObj.soil_moisture : 0, value: feat.soil_moisture_pct !== undefined ? feat.soil_moisture_pct : '-', unit: '%' }
         ].sort(function (a, b) { return Number(b.contribution_pct) - Number(a.contribution_pct); });
 
     var box = makeDiv('ga-why');
-    box.appendChild(makeDiv('ga-why-title', 'Vì sao có mức nguy cơ này?'));
+    box.appendChild(makeDiv('ga-why-title', 'Vì sao có mức nguy cơ này? (4 nhóm yếu tố AI)'));
 
     if (data.why_summary) {
       var sumP = document.createElement('p');
@@ -239,10 +273,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
     factors.forEach(function (f) {
       var pct = Math.min(Math.max(Number(f.contribution_pct) || 0, 0), 100);
+      var hasShapley = f.shapley_pp !== undefined && f.shapley_pp !== null && !Number.isNaN(Number(f.shapley_pp));
+      var shapleyNum = hasShapley ? Number(f.shapley_pp) : 0;
+      var shapleyLabel = hasShapley
+        ? ((shapleyNum >= 0 ? '+' : '') + shapleyNum.toFixed(1) + ' điểm % · chiếm ' + pct + '%')
+        : ('chiếm ' + pct + '%');
+
+      var valDisplay = (f.value !== undefined && f.value !== null ? f.value : '-') + (f.unit || '');
+      if (f.rain_1d_value !== undefined && f.rain_1d_value !== null) {
+        valDisplay = '1 ngày: ' + f.rain_1d_value + 'mm · 3 ngày: ' + (f.value !== undefined ? f.value : '-') + (f.unit || 'mm');
+      }
+
       var item = makeDiv('ga-why-item');
       var top = makeDiv('ga-why-top');
-      top.appendChild(makeDiv('ga-why-name', f.label));
-      top.appendChild(makeDiv('ga-why-val', f.value + (f.unit || '') + ' (' + pct + '%)'));
+      top.appendChild(makeDiv('ga-why-name', f.label + ' (' + valDisplay + ')'));
+      top.appendChild(makeDiv('ga-why-val', shapleyLabel));
       item.appendChild(top);
 
       var track = makeDiv('ga-why-track');
@@ -254,6 +299,35 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     containerEl.appendChild(box);
+
+    // Khung tham khảo tách biệt cho NDVI (surface_context — nằm ngoài lõi 9 biến AI)
+    var sc = data.surface_context;
+    if (sc && typeof sc === 'object') {
+      var scBox = document.createElement('div');
+      scBox.style.cssText = 'margin-top:10px;padding:10px 12px;border-radius:8px;background:#f8fafc;border:1px solid #cbd5e1;font-size:12.5px;color:#334155;';
+
+      var scHeader = document.createElement('div');
+      scHeader.style.cssText = 'font-weight:700;color:#1e293b;margin-bottom:4px;';
+      var scVal = (sc.value !== undefined && sc.value !== null) ? (' = ' + sc.value) : '';
+      scHeader.textContent = (sc.label || 'Thảm phủ thực vật 30m (NDVI — chỉ số tham khảo ngoài lõi AI)') + scVal;
+      scBox.appendChild(scHeader);
+
+      if (sc.status) {
+        var scStatus = document.createElement('div');
+        scStatus.style.cssText = 'font-weight:600;color:#0f766e;margin-bottom:2px;';
+        scStatus.textContent = 'Trạng thái lớp phủ: ' + sc.status;
+        scBox.appendChild(scStatus);
+      }
+
+      if (sc.note) {
+        var scNote = document.createElement('div');
+        scNote.style.cssText = 'color:#475569;line-height:1.4;';
+        scNote.textContent = sc.note;
+        scBox.appendChild(scNote);
+      }
+
+      containerEl.appendChild(scBox);
+    }
   }
 
   function renderPredictionResult(data) {
@@ -264,12 +338,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var tier = (data.tier_code || '').toLowerCase();
     var isWater = Boolean(data.is_water) || tier === 'water';
-    var probPt = (data.prob_point_pct !== undefined && data.prob_point_pct !== null)
-      ? Number(data.prob_point_pct).toFixed(1)
-      : '0.0';
+    var hasValidProb = data.prob_point_pct !== undefined && data.prob_point_pct !== null && !Number.isNaN(Number(data.prob_point_pct));
 
     var headCls = 'ga-risk-low';
-    var badgeText = (data.risk_level || 'Thấp') + ' — ' + probPt + '%';
+    var badgeText = hasValidProb
+      ? ((data.risk_level || 'Thấp') + ' — ' + Number(data.prob_point_pct).toFixed(1) + '%')
+      : (data.risk_level || 'Chưa đánh giá được');
+
     if (isWater) {
       headCls = 'ga-risk-water';
       badgeText = 'Mặt nước — 0%';
@@ -284,13 +359,21 @@ document.addEventListener('DOMContentLoaded', function () {
     head.appendChild(makeDiv('ga-risk-level', badgeText));
     slot.appendChild(head);
 
+    // Điểm B: Nhãn cảnh báo khi dùng cache trễ < 3h tại đúng vị trí
+    if (data.data_status === 'stale_same_location') {
+      var staleBadge = document.createElement('div');
+      staleBadge.style.cssText = 'margin:8px 0;padding:7px 10px;border-radius:8px;background:#fffbeb;border:1px solid #f59e0b;color:#b45309;font-size:12.5px;font-weight:600;';
+      staleBadge.textContent = '⏱️ Đang dùng dữ liệu cache trễ (< 3h) tại đúng vị trí này';
+      slot.appendChild(staleBadge);
+    }
+
     if (data.recommendation) {
       slot.appendChild(makeDiv('ga-rec-box', data.recommendation));
     }
 
     // Khối phụ Tham khảo trong bán kính (max_in_radius)
     var mr = data.max_in_radius;
-    if (mr) {
+    if (mr && mr.prob_pct !== null && mr.prob_pct !== undefined) {
       var isHighRef = Number(mr.prob_pct) >= 50;
       var refBox = makeDiv('ga-max-ref' + (isHighRef ? '' : ' is-safe'));
       refBox.appendChild(makeDiv('ga-max-ref-title', 'Tham khảo trong bán kính'));
@@ -359,13 +442,15 @@ document.addEventListener('DOMContentLoaded', function () {
     if (cbNdvi)    { cbNdvi.checked    = overlayState.ndvi; }
   }
 
-  function setOverlayStatus(text) {
+  function setOverlayStatus(text, isWarning) {
     if (overlayStatusEl) {
       overlayStatusEl.textContent = text || '';
+      overlayStatusEl.style.color = isWarning ? '#b45309' : '';
+      overlayStatusEl.style.fontWeight = isWarning ? '600' : '';
     }
   }
 
-  // Bật/tắt 3 lớp bản đồ từ POST /overlay (hotspot & zoning loại trừ nhau)
+  // Bật/tắt 3 lớp bản đồ từ POST /overlay (kèm xử lý lỗi 503 & cache trễ < 3h)
   async function toggleMapOverlay(layerName, isChecked) {
     overlayState[layerName] = Boolean(isChecked);
 
@@ -375,7 +460,7 @@ document.addEventListener('DOMContentLoaded', function () {
         activeOverlays[layerName] = null;
       }
       syncOverlayCheckboxes();
-      setOverlayStatus('');
+      setOverlayStatus('', false);
       return;
     }
 
@@ -400,7 +485,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (isLoadingOverlay) { return; }
     isLoadingOverlay = true;
-    setOverlayStatus('Đang tải lớp bản đồ...');
+    setOverlayStatus('Đang tải lớp bản đồ...', false);
     try {
       var res = await fetch(API_BASE + '/overlay', {
         method: 'POST',
@@ -415,7 +500,9 @@ document.addEventListener('DOMContentLoaded', function () {
       });
       if (!res.ok) {
         var err = await res.json().catch(function () { return {}; });
-        throw new Error(err.detail || ('Không tải được lớp bản đồ ' + layerName));
+        throw new Error(err.detail || (res.status === 503
+          ? 'Tạm gián đoạn dữ liệu khí tượng (HTTP 503).'
+          : ('Không tải được lớp bản đồ ' + layerName)));
       }
       var data = await res.json();
       if (!overlayState[layerName]) { return; }
@@ -435,15 +522,24 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       activeOverlays[layerName] = ov;
 
-      if (data.stats && data.stats.hotspot_pct !== undefined && layerName === 'hotspot') {
-        setOverlayStatus('Điểm nóng ưu tiên: ' + data.stats.hotspot_pct + '% diện tích (' + data.stats.hotspot_pixels + ' pixel 30m)');
-      } else {
-        setOverlayStatus('');
+      // Điểm B: Kiểm tra data_stale trên /overlay
+      var statusParts = [];
+      var isStale = Boolean(data.stats && data.stats.data_stale === true);
+      if (isStale) {
+        statusParts.push('⏱️ Đang dùng dữ liệu cache trễ (< 3h) tại đúng vị trí này');
       }
+      if (data.stats && data.stats.hotspot_pct !== undefined && layerName === 'hotspot') {
+        statusParts.push('Điểm nóng ưu tiên: ' + data.stats.hotspot_pct + '% diện tích (' + data.stats.hotspot_pixels + ' pixel 30m)');
+      }
+      setOverlayStatus(statusParts.join(' | '), isStale);
     } catch (e) {
-      overlayState[layerName] = false;
-      syncOverlayCheckboxes();
-      setOverlayStatus(e.message || 'Lỗi tải lớp bản đồ.');
+      // Điểm A: Xóa sạch lớp phủ cũ khi gặp 503 / mất mạng
+      var errMsg = (e && e.message && e.message !== 'Failed to fetch')
+        ? e.message
+        : 'Tạm gián đoạn kết nối dữ liệu khí tượng.';
+      clearAllActiveOverlays();
+      renderFailLoudWarning(errMsg);
+      setOverlayStatus('⚠️ ' + errMsg + ' — Chưa thể đánh giá nguy cơ, không dùng làm căn cứ lưu thông.', true);
     } finally {
       isLoadingOverlay = false;
     }
@@ -490,14 +586,21 @@ document.addEventListener('DOMContentLoaded', function () {
       radius_m: Number(payloadObj.radiusM),
       date: payloadObj.dateStr || null
     };
-    var response = await fetch(API_BASE + '/predict', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    var response;
+    try {
+      response = await fetch(API_BASE + '/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (networkErr) {
+      throw new Error('Tạm gián đoạn kết nối mạng hoặc máy chủ dữ liệu khí tượng.');
+    }
     var bodyJson = await response.json().catch(function () { return {}; });
     if (!response.ok) {
-      throw new Error(bodyJson.detail || 'Lỗi khi gọi API dự báo');
+      throw new Error(bodyJson.detail || (response.status === 503
+        ? 'Tạm gián đoạn dữ liệu khí tượng (HTTP 503).'
+        : 'Lỗi khi gọi API dự báo'));
     }
     return bodyJson;
   }
@@ -521,11 +624,10 @@ document.addEventListener('DOMContentLoaded', function () {
       })
       .catch(function (err) {
         if (token !== predictToken) { return; }
-        var slot = document.getElementById('ga-risk-slot');
-        if (slot) {
-          slot.className = 'ga-pending';
-          slot.textContent = err.message || 'Không thể lấy kết quả dự báo lúc này.';
-        }
+        // Điểm A: Xóa sạch lớp phủ cũ và hiện cảnh báo Fail-Loud khi nhận HTTP 503 hoặc mất mạng
+        clearAllActiveOverlays();
+        setOverlayStatus('', false);
+        renderFailLoudWarning(err.message);
       })
       .finally(function () {
         if (token === predictToken) {
@@ -597,20 +699,22 @@ document.addEventListener('DOMContentLoaded', function () {
     emptyMessage('Bấm lên bản đồ, chọn chấm trọng điểm hoặc chọn mốc kiểm chứng để xem mức nguy cơ.');
   }
 
+  // Điểm D: Màu xám (#6b7280) cho trạng thái unavailable / đang tải (không ép về xanh)
   function tierColor(tier) {
     var t = (tier || '').toLowerCase();
+    if (t === 'unavailable' || t === 'loading') { return '#6b7280'; }
     if (t === 'red') { return '#dc2626'; }
     if (t === 'yellow') { return '#d97706'; }
     return '#16a34a';
   }
 
-  // 5 chấm trọng điểm cố định (đã đồng bộ đúng tọa độ Đà Lạt & Đèo Prenn hiện tại)
+  // 5 chấm trọng điểm cố định (khởi tạo ở trạng thái 'loading' xám cho tới khi API /hotspots trả về)
   var DEFAULT_HOTSPOTS = [
-    { name: 'Trung tâm Đà Lạt', lat: 11.939272, lon: 108.461561 },
-    { name: 'Đèo Prenn',        lat: 11.896950, lon: 108.451639 },
-    { name: 'Đèo Mimosa',       lat: 11.904572, lon: 108.463161 },
-    { name: 'Đèo Khánh Lê',     lat: 12.222164, lon: 108.772731 },
-    { name: 'Đèo Bảo Lộc',      lat: 11.455536, lon: 107.717375 }
+    { name: 'Trung tâm Đà Lạt', lat: 11.939272, lon: 108.461561, tier_code: 'loading', prob_pct: null, risk_level: 'Đang tải dữ liệu...' },
+    { name: 'Đèo Prenn',        lat: 11.896950, lon: 108.451639, tier_code: 'loading', prob_pct: null, risk_level: 'Đang tải dữ liệu...' },
+    { name: 'Đèo Mimosa',       lat: 11.904572, lon: 108.463161, tier_code: 'loading', prob_pct: null, risk_level: 'Đang tải dữ liệu...' },
+    { name: 'Đèo Khánh Lê',     lat: 12.222164, lon: 108.772731, tier_code: 'loading', prob_pct: null, risk_level: 'Đang tải dữ liệu...' },
+    { name: 'Đèo Bảo Lộc',      lat: 11.455536, lon: 107.717375, tier_code: 'loading', prob_pct: null, risk_level: 'Đang tải dữ liệu...' }
   ];
 
   function matchFixedHotspot(pt, lat, lon) {
@@ -629,7 +733,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return null;
   }
 
-  function renderHotspotMarkers(listItems) {
+  function renderHotspotMarkers(listItems, isInitialPlaceholder) {
     hotspotsLayer.clearLayers();
     var seenNames = {};
     var mergedList = [];
@@ -652,29 +756,43 @@ document.addEventListener('DOMContentLoaded', function () {
         lon: lon,
         tier_code: pt.tier_code,
         prob_pct: pt.prob_pct,
-        prob: pt.prob
+        prob: pt.prob,
+        risk_level: pt.risk_level,
+        error: pt.error
       });
     });
 
-    // Bảo đảm 5 chấm trọng điểm luôn hiển thị đầy đủ dù API trả thiếu
+    // Nếu thiếu điểm nào sau khi API trả về -> gắn trạng thái 'unavailable' màu xám (tuyệt đối không ép xanh)
     DEFAULT_HOTSPOTS.forEach(function (def) {
       if (!seenNames[def.name]) {
         mergedList.push({
           title: def.name,
           lat: def.lat,
           lon: def.lon,
-          tier_code: 'green',
+          tier_code: isInitialPlaceholder ? 'loading' : 'unavailable',
           prob_pct: null,
-          prob: undefined
+          prob: undefined,
+          risk_level: isInitialPlaceholder ? 'Đang tải dữ liệu...' : 'Chưa đánh giá được',
+          error: isInitialPlaceholder ? '' : 'Chưa có dữ liệu khí tượng tại điểm này'
         });
       }
     });
 
     mergedList.forEach(function (item) {
-      var color = tierColor(item.tier_code);
-      var probText = (item.prob_pct !== undefined && item.prob_pct !== null)
-        ? (Number(item.prob_pct).toFixed(1) + '%')
-        : ((item.prob !== undefined) ? ((Number(item.prob) * 100).toFixed(1) + '%') : '');
+      // Điểm D: Kiểm tra tier_code === 'unavailable' || prob_pct === null trước khi vẽ badge
+      var isUnavailable = (item.tier_code === 'unavailable' || item.prob_pct === null || item.prob_pct === undefined);
+      var color = isUnavailable ? '#6b7280' : tierColor(item.tier_code);
+
+      var statusText = '';
+      if (item.tier_code === 'loading') {
+        statusText = item.risk_level || 'Đang tải dữ liệu...';
+      } else if (isUnavailable) {
+        statusText = (item.risk_level || 'Chưa đánh giá được') + (item.error ? (' — ' + item.error) : '');
+      } else if (item.prob_pct !== undefined && item.prob_pct !== null) {
+        statusText = (item.risk_level ? (item.risk_level + ' — ') : '') + Number(item.prob_pct).toFixed(1) + '%';
+      } else if (item.prob !== undefined && item.prob !== null) {
+        statusText = (Number(item.prob) * 100).toFixed(1) + '%';
+      }
 
       var cm = L.circleMarker([item.lat, item.lon], {
         radius: 8,
@@ -684,7 +802,7 @@ document.addEventListener('DOMContentLoaded', function () {
         opacity: 1,
         fillOpacity: 0.92
       });
-      cm.bindTooltip(item.title + (probText ? (' — ' + probText) : ''));
+      cm.bindTooltip(item.title + (statusText ? (' — ' + statusText) : ''));
       cm.on('click', function (ev) {
         L.DomEvent.stopPropagation(ev);
         if (!isPredicting) {
@@ -696,7 +814,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function loadHotspots(dateStr) {
-    renderHotspotMarkers(DEFAULT_HOTSPOTS);
+    renderHotspotMarkers(DEFAULT_HOTSPOTS, true);
     var query = dateStr ? ('?date=' + encodeURIComponent(dateStr)) : '';
     fetch(API_BASE + '/hotspots' + query)
       .then(function (res) {
@@ -705,12 +823,11 @@ document.addEventListener('DOMContentLoaded', function () {
       })
       .then(function (data) {
         var items = Array.isArray(data) ? data : (data.hotspots || data.items || []);
-        if (items.length > 0) {
-          renderHotspotMarkers(items);
-        }
+        renderHotspotMarkers(items, false);
       })
       .catch(function (err) {
         console.warn('GEOALERT hotspots:', err);
+        renderHotspotMarkers([], false);
       });
   }
 
