@@ -60,6 +60,122 @@ document.addEventListener('DOMContentLoaded', function () {
   var maxRadiusMarker = null;
   var maxRadiusLine = null;
   var hotspotsLayer = L.layerGroup().addTo(map);
+  // Lớp cung đèo tự động (>= 76%) bật mặc định; các lớp pixel 30m vẫn tắt mặc định
+  var corridorLayerGroup = L.layerGroup().addTo(map);
+  var currentCorridorMode = 'realtime';
+
+  if (!document.getElementById('geoalert-corridor-styles')) {
+    var styleEl = document.createElement('style');
+    styleEl.id = 'geoalert-corridor-styles';
+    styleEl.textContent = [
+      '@keyframes geoPulse {',
+      '  0%   { transform: scale(0.95); opacity: 0.9; }',
+      '  70%  { transform: scale(1.45); opacity: 0; }',
+      '  100% { transform: scale(0.95); opacity: 0; }',
+      '}',
+      '.geo-pulse-ring {',
+      '  position: absolute; top: -4px; left: -4px; width: 34px; height: 34px;',
+      '  border-radius: 50%; background: rgba(220, 38, 38, 0.45);',
+      '  animation: geoPulse 1.6s infinite; pointer-events: none;',
+      '}',
+      '.ga-corridor-pin-wrap {',
+      '  position: relative; width: 26px; height: 26px; display: flex;',
+      '  align-items: center; justify-content: center;',
+      '}',
+      '.ga-corridor-hud {',
+      '  position: absolute; top: 10px; left: 50px; right: 54px; z-index: 800;',
+      '  display: flex; flex-direction: column; gap: 6px; pointer-events: none;',
+      '  max-width: 560px;',
+      '}',
+      '.ga-corridor-hud > * { pointer-events: auto; }',
+      '.ga-mode-bar {',
+      '  display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px;',
+      '  background: rgba(255,255,255,0.95); padding: 5px 8px; border-radius: 10px;',
+      '  box-shadow: 0 2px 10px rgba(0,0,0,0.12); border: 1px solid #cbd5e1;',
+      '  width: fit-content;',
+      '}',
+      '.ga-mode-btn {',
+      '  border: 1px solid #cbd5e1; background: #f8fafc; color: #334155;',
+      '  padding: 4px 10px; border-radius: 7px; font-size: 12px; font-weight: 700;',
+      '  cursor: pointer; transition: all 0.15s ease;',
+      '}',
+      '.ga-mode-btn.is-active-live { background: #1F4D2B; color: #ffffff; border-color: #1F4D2B; }',
+      '.ga-mode-btn.is-active-demo { background: #6d28d9; color: #ffffff; border-color: #6d28d9; }',
+      '.ga-replay-ribbon {',
+      '  background: #f5f3ff; border: 1.5px solid #7c3aed; color: #5b21b6;',
+      '  padding: 5px 10px; border-radius: 8px; font-size: 11.5px; font-weight: 800;',
+      '  box-shadow: 0 2px 8px rgba(109,40,217,0.15); width: fit-content;',
+      '}',
+      '.ga-corridor-banner {',
+      '  padding: 8px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.45;',
+      '  box-shadow: 0 3px 12px rgba(0,0,0,0.14); backdrop-filter: blur(4px);',
+      '}',
+      '.ga-corridor-banner.is-unavailable { background: rgba(255, 247, 237, 0.96); border: 1.5px solid #ea580c; color: #7c2d12; }',
+      '.ga-corridor-banner.is-alert { background: rgba(254, 242, 242, 0.96); border: 1.5px solid #dc2626; color: #7f1d1d; }',
+      '.ga-corridor-banner.is-clear { background: rgba(240, 253, 244, 0.96); border: 1.5px solid #16a34a; color: #14532d; }',
+      '.ga-banner-main { font-weight: 700; }',
+      '.ga-banner-scope { font-size: 11.5px; opacity: 0.9; margin-top: 3px; }',
+      '.ga-corr-popup { min-width: 265px; max-width: 310px; font-size: 12.5px; line-height: 1.45; color: #1e293b; }',
+      '.ga-corr-pop-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }',
+      '.ga-corr-pop-title { font-weight: 800; font-size: 14px; color: #0f172a; }',
+      '.ga-corr-badge { padding: 2px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 800; color: #fff; white-space: nowrap; }',
+      '.ga-corr-badge.is-priority { background: #b91028; }',
+      '.ga-corr-badge.is-high { background: #ea580c; }',
+      '.ga-corr-metrics { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 7px; padding: 6px 8px; margin-bottom: 8px; font-size: 12px; }',
+      '.ga-corr-shap-row { margin-bottom: 5px; }',
+      '.ga-corr-shap-top { display: flex; justify-content: space-between; font-size: 11.5px; margin-bottom: 2px; }',
+      '.ga-corr-shap-bar { height: 5px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }',
+      '.ga-corr-shap-fill { height: 100%; background: #dc2626; border-radius: 4px; }',
+      '.ga-corr-ndvi { margin-top: 7px; padding: 6px 8px; border-radius: 6px; background: #f1f5f9; border: 1px solid #cbd5e1; font-size: 11.5px; color: #334155; }',
+      '.ga-soi-30m-btn { margin-top: 9px; width: 100%; padding: 7px 10px; border: none; border-radius: 7px; background: #1F4D2B; color: #fff; font-weight: 700; font-size: 12.5px; cursor: pointer; }',
+      '.ga-soi-30m-btn:hover { background: #16381f; }',
+      '@media (max-width: 640px) { .ga-corridor-hud { left: 10px; right: 10px; top: auto; bottom: 26px; max-width: none; } }'
+    ].join('\n');
+    document.head.appendChild(styleEl);
+  }
+
+  var hudContainer = document.createElement('div');
+  hudContainer.className = 'ga-corridor-hud';
+
+  var modeBar = document.createElement('div');
+  modeBar.className = 'ga-mode-bar';
+
+  var btnLiveMode = document.createElement('button');
+  btnLiveMode.type = 'button';
+  btnLiveMode.className = 'ga-mode-btn is-active-live';
+  btnLiveMode.textContent = 'Trực tiếp (Hôm nay)';
+
+  var btnDemoMode = document.createElement('button');
+  btnDemoMode.type = 'button';
+  btnDemoMode.className = 'ga-mode-btn';
+  btnDemoMode.textContent = 'Tái hiện bão 29/07/2023';
+
+  modeBar.appendChild(btnLiveMode);
+  modeBar.appendChild(btnDemoMode);
+
+  var replayRibbon = document.createElement('div');
+  replayRibbon.className = 'ga-replay-ribbon';
+  replayRibbon.style.display = 'none';
+  replayRibbon.textContent = 'CHẾ ĐỘ TÁI HIỆN LỊCH SỬ (29/07/2023) — KHÔNG PHẢI CẢNH BÁO HIỆN TẠI';
+
+  var corridorBanner = document.createElement('div');
+  corridorBanner.className = 'ga-corridor-banner is-unavailable';
+  corridorBanner.innerHTML = '<div class="ga-banner-main">Đang tải dữ liệu quét cung đèo tự động...</div>';
+
+  hudContainer.appendChild(modeBar);
+  hudContainer.appendChild(replayRibbon);
+  hudContainer.appendChild(corridorBanner);
+  el.appendChild(hudContainer);
+
+  L.DomEvent.disableClickPropagation(hudContainer);
+  L.DomEvent.disableScrollPropagation(hudContainer);
+
+  btnLiveMode.addEventListener('click', function () {
+    if (typeof loadCorridors === 'function') { loadCorridors('realtime'); }
+  });
+  btnDemoMode.addEventListener('click', function () {
+    if (typeof loadCorridors === 'function') { loadCorridors('demo'); }
+  });
 
   var isPredicting = false;
   var predictToken = 0;
@@ -1014,6 +1130,314 @@ document.addEventListener('DOMContentLoaded', function () {
       if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
     });
   }
+  function formatHhMm(isoStr) {
+    var d = isoStr ? new Date(isoStr) : new Date();
+    var safeDate = Number.isNaN(d.getTime()) ? new Date() : d;
+    return safeDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
 
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function setBannerState(type, mainText, scopeText) {
+    corridorBanner.className = 'ga-corridor-banner is-' + type;
+    corridorBanner.innerHTML = '';
+    corridorBanner.appendChild(makeDiv('ga-banner-main', mainText));
+    if (scopeText) {
+      corridorBanner.appendChild(makeDiv('ga-banner-scope', scopeText));
+    }
+  }
+
+  function buildCorridorPopupHtml(c, dataDate) {
+    var peak = c.peak || {};
+    var isPriority = (peak.tier === 'priority') || (Number(peak.prob_pct) >= 88);
+    var badgeCls = isPriority ? 'is-priority' : 'is-high';
+    var badgeLabel = isPriority ? 'ĐIỂM NÓNG ƯU TIÊN' : 'NGUY CƠ CAO';
+
+    var factors = Array.isArray(c.why_factors) ? c.why_factors : [];
+    var shapHtml = factors.map(function (f) {
+      var pct = Math.min(Math.max(Number(f.contribution_pct) || 0, 0), 100);
+      var pp = (f.shapley_pp !== undefined && f.shapley_pp !== null)
+        ? ((Number(f.shapley_pp) >= 0 ? '+' : '') + Number(f.shapley_pp).toFixed(1) + ' điểm % · ')
+        : '';
+      var valStr = (f.value !== undefined && f.value !== null) ? (' (' + f.value + (f.unit || '') + ')') : '';
+      return [
+        '<div class="ga-corr-shap-row">',
+        '  <div class="ga-corr-shap-top">',
+        '    <span>' + escapeHtml(f.label) + escapeHtml(valStr) + '</span>',
+        '    <strong>' + escapeHtml(pp) + pct + '%</strong>',
+        '  </div>',
+        '  <div class="ga-corr-shap-bar"><div class="ga-corr-shap-fill" style="width:' + Math.max(4, Math.round(pct)) + '%"></div></div>',
+        '</div>'
+      ].join('');
+    }).join('');
+
+    var sc = c.surface_context || {};
+    var ndviHtml = '';
+    if (sc.ndvi !== undefined || sc.status) {
+      ndviHtml = [
+        '<div class="ga-corr-ndvi">',
+        '  <div><strong>Chỉ số NDVI tham khảo (ngoài lõi AI):</strong> ' + (sc.ndvi !== undefined ? escapeHtml(sc.ndvi) : '-') + '</div>',
+        (sc.status ? ('  <div>Trạng thái phủ: ' + escapeHtml(sc.status) + '</div>') : ''),
+        '</div>'
+      ].join('');
+    }
+
+    var rainLine = 'Mưa 1d / 3d / 15d: <strong>'
+      + (peak.rain_1d_mm !== undefined ? peak.rain_1d_mm : '-') + ' / '
+      + (peak.rain_3d_mm !== undefined ? peak.rain_3d_mm : '-') + ' / '
+      + (peak.rain_15d_mm !== undefined ? peak.rain_15d_mm : '-') + ' mm</strong>';
+
+    return [
+      '<div class="ga-corr-popup">',
+      '  <div class="ga-corr-pop-head">',
+      '    <span class="ga-corr-pop-title">' + escapeHtml(c.road || 'Tuyến đường đèo') + '</span>',
+      '    <span class="ga-corr-badge ' + badgeCls + '">' + badgeLabel + '</span>',
+      '  </div>',
+      '  <div class="ga-corr-metrics">',
+      '    <div>Xác suất đỉnh: <strong style="color:#b91028;">' + Number(peak.prob_pct || 0).toFixed(1) + '%</strong> · Chiều dài: <strong>' + Number(c.length_km || 0).toFixed(1) + ' km</strong></div>',
+      '    <div>' + rainLine + '</div>',
+      '  </div>',
+      '  <div style="font-weight:700;font-size:12px;margin-bottom:4px;color:#0f172a;">Phân tích nguyên nhân (Exact Group Shapley):</div>',
+      shapHtml,
+      ndviHtml,
+      '  <button type="button" class="ga-soi-30m-btn"',
+      '    data-lat="' + Number(peak.lat) + '"',
+      '    data-lon="' + Number(peak.lon) + '"',
+      '    data-date="' + escapeHtml(dataDate || '') + '"',
+      '    data-road="' + escapeHtml(c.road || '') + '">',
+      '    🔍 Soi chi tiết taluy 30 m',
+      '  </button>',
+      '</div>'
+    ].join('');
+  }
+
+  async function inspectCorridorTaluy30m(lat, lon, dateStr, roadName) {
+    map.closePopup();
+    map.setView([lat, lon], 14);
+
+    state.lat = Number(lat);
+    state.lon = Number(lon);
+    state.label = roadName ? ('Soi 30m: ' + roadName) : 'Soi chi tiết taluy 30m';
+    state.radius = 2000;
+    state.date = dateStr || '';
+
+    if (dateInput) { dateInput.value = state.date; }
+    radiusBtns.forEach(function (b) {
+      var rVal = parseInt(b.getAttribute('data-r'), 10);
+      if (rVal === 2000) { b.classList.add('is-active'); }
+      else { b.classList.remove('is-active'); }
+    });
+
+    if (marker) { map.removeLayer(marker); }
+    marker = L.marker([state.lat, state.lon], { icon: pinIcon }).addTo(map);
+    drawCircle();
+
+    if (activeOverlays.hotspot) {
+      map.removeLayer(activeOverlays.hotspot);
+      activeOverlays.hotspot = null;
+    }
+    overlayState.hotspot = false;
+    overlayState.zoning = true;
+    syncOverlayCheckboxes();
+
+    runPredict();
+
+    if (isLoadingOverlay) { return; }
+    isLoadingOverlay = true;
+    setOverlayStatus('Đang tải lớp phân vùng taluy 30m...', false);
+    try {
+      var res = await fetch(API_BASE + '/overlay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lat: Number(lat),
+          lon: Number(lon),
+          radius_m: 2000,
+          date: dateStr || null,
+          layer: 'zoning'
+        })
+      });
+      if (!res.ok) {
+        var err = await res.json().catch(function () { return {}; });
+        throw new Error(err.detail || 'Không tải được lớp phân vùng taluy 30m');
+      }
+      var ovData = await res.json();
+      if (!overlayState.zoning) { return; }
+
+      if (activeOverlays.zoning) { map.removeLayer(activeOverlays.zoning); }
+      var ov = L.imageOverlay(ovData.image_base64, ovData.bounds, {
+        opacity: 0.92,
+        interactive: false
+      }).addTo(map);
+      ov.bringToFront();
+      activeOverlays.zoning = ov;
+
+      var isStale = Boolean(ovData.stats && ovData.stats.data_stale === true);
+      setOverlayStatus(
+        isStale
+          ? '⏱️ Đang dùng dữ liệu cache trễ (< 3h) tại đúng vị trí này'
+          : ('Đã phủ lớp phân vùng taluy 30m (bán kính 2 km)' + (dateStr ? (' — ngày ' + dateStr) : '')),
+        isStale
+      );
+    } catch (e) {
+      var errMsg = (e && e.message && e.message !== 'Failed to fetch')
+        ? e.message
+        : 'Tạm gián đoạn kết nối dữ liệu khí tượng.';
+      clearAllActiveOverlays();
+      renderFailLoudWarning(errMsg);
+      setOverlayStatus('⚠️ ' + errMsg + ' — Chưa thể đánh giá nguy cơ, không dùng làm căn cứ lưu thông.', true);
+    } finally {
+      isLoadingOverlay = false;
+    }
+  }
+
+  map.on('popupopen', function (e) {
+    var popupEl = e.popup && e.popup.getElement();
+    if (!popupEl) { return; }
+    var soiBtn = popupEl.querySelector('.ga-soi-30m-btn');
+    if (soiBtn) {
+      L.DomEvent.on(soiBtn, 'click', function (ev) {
+        L.DomEvent.stopPropagation(ev);
+        var lat = Number(soiBtn.getAttribute('data-lat'));
+        var lon = Number(soiBtn.getAttribute('data-lon'));
+        var dStr = soiBtn.getAttribute('data-date') || '';
+        var road = soiBtn.getAttribute('data-road') || '';
+        if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+          inspectCorridorTaluy30m(lat, lon, dStr, road);
+        }
+      });
+    }
+  });
+
+  function renderCorridorsOnMap(data, mode) {
+    corridorLayerGroup.clearLayers();
+
+    var defaultScope = 'Chỉ quét tự động Quốc lộ & Tỉnh lộ (±60m vách taluy 30m). Khu dân cư/đường nhánh vui lòng bấm trực tiếp lên bản đồ để soi 30m.';
+    var scopeNote = (data && data.scope_note) ? data.scope_note : defaultScope;
+
+    var updatedTs = data && data.updated_at ? Date.parse(data.updated_at) : NaN;
+    var isExpiredRealtime = (mode === 'realtime') && (Number.isNaN(updatedTs) || (Date.now() - updatedTs > 9 * 3600 * 1000));
+
+    if (!data || data.status !== 'ok' || isExpiredRealtime) {
+      var errDetail = (data && data.error) ? (' (' + data.error + ')') : '';
+      setBannerState(
+        'unavailable',
+        '⚠️ Tạm gián đoạn hoặc dữ liệu quét tự động đã quá 9 giờ — Chưa thể đánh giá trục đèo lúc này' + errDetail,
+        scopeNote
+      );
+      return;
+    }
+
+    var corridors = Array.isArray(data.corridors) ? data.corridors : [];
+    if (corridors.length === 0) {
+      setBannerState(
+        'clear',
+        'Quốc lộ & Tỉnh lộ hiện ghi nhận 0 đoạn ≥ 76% (Cập nhật lúc ' + formatHhMm(data.updated_at) + ')',
+        scopeNote
+      );
+      return;
+    }
+
+    var summary = data.summary || {};
+    var count = summary.corridor_count !== undefined ? summary.corridor_count : corridors.length;
+    var totalKm = summary.total_danger_km !== undefined
+      ? Number(summary.total_danger_km).toFixed(1)
+      : corridors.reduce(function (acc, item) { return acc + (Number(item.length_km) || 0); }, 0).toFixed(1);
+
+    setBannerState(
+      'alert',
+      '🚨 Cảnh báo trục đèo: ' + count + ' cung/đoạn nguy cơ cao — Tổng chiều dài ' + totalKm + ' km (Cập nhật ' + formatHhMm(data.updated_at) + ')',
+      scopeNote
+    );
+
+    corridors.forEach(function (c) {
+      var pts = Array.isArray(c.danger_points) ? c.danger_points : [];
+      pts.forEach(function (pt) {
+        if (!Array.isArray(pt) || pt.length < 2) { return; }
+        var pLat = Number(pt[0]);
+        var pLon = Number(pt[1]);
+        var pProb = Number(pt[2] || 0);
+        if (Number.isNaN(pLat) || Number.isNaN(pLon)) { return; }
+
+        var dotColor = pProb >= 88 ? '#b91028' : '#f97316';
+        L.circleMarker([pLat, pLon], {
+          radius: 4,
+          fillColor: dotColor,
+          color: '#ffffff',
+          weight: 1,
+          opacity: 0.95,
+          fillOpacity: 0.95
+        }).addTo(corridorLayerGroup);
+      });
+
+      var peak = c.peak;
+      if (!peak || Number.isNaN(Number(peak.lat)) || Number.isNaN(Number(peak.lon))) { return; }
+      var isPriority = (peak.tier === 'priority') || (Number(peak.prob_pct) >= 88);
+      var triColor = isPriority ? '#b91028' : '#f97316';
+
+      var iconHtml = '<div class="ga-corridor-pin-wrap">'
+        + (isPriority ? '<div class="geo-pulse-ring"></div>' : '')
+        + '<svg viewBox="0 0 28 26" width="26" height="26" style="position:relative;z-index:2;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.45));" xmlns="http://www.w3.org/2000/svg">'
+        + '  <path d="M14 2 L26 24 L2 24 Z" fill="' + triColor + '" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>'
+        + '  <rect x="12.8" y="9.5" width="2.4" height="7" rx="1" fill="#ffffff"/>'
+        + '  <circle cx="14" cy="19.5" r="1.4" fill="#ffffff"/>'
+        + '</svg>'
+        + '</div>';
+
+      var triIcon = L.divIcon({
+        className: '',
+        html: iconHtml,
+        iconSize: [26, 26],
+        iconAnchor: [13, 22],
+        popupAnchor: [0, -20]
+      });
+
+      var peakMarker = L.marker([Number(peak.lat), Number(peak.lon)], { icon: triIcon });
+      peakMarker.bindTooltip((c.road || 'Cung đèo') + ' — Đỉnh ' + Number(peak.prob_pct || 0).toFixed(1) + '%', { direction: 'top' });
+      peakMarker.bindPopup(buildCorridorPopupHtml(c, data.date), { maxWidth: 320 });
+      peakMarker.on('click', function (ev) { L.DomEvent.stopPropagation(ev); });
+      peakMarker.addTo(corridorLayerGroup);
+    });
+  }
+
+  async function loadCorridors(mode) {
+    currentCorridorMode = (mode === 'demo') ? 'demo' : 'realtime';
+    corridorLayerGroup.clearLayers();
+
+    if (currentCorridorMode === 'demo') {
+      btnLiveMode.className = 'ga-mode-btn';
+      btnDemoMode.className = 'ga-mode-btn is-active-demo';
+      replayRibbon.style.display = 'block';
+    } else {
+      btnLiveMode.className = 'ga-mode-btn is-active-live';
+      btnDemoMode.className = 'ga-mode-btn';
+      replayRibbon.style.display = 'none';
+    }
+
+    var fileName = (currentCorridorMode === 'demo')
+      ? 'corridors_demo_2023_07_29.json'
+      : 'corridors_latest.json';
+
+    var bust = '?t=' + Date.now();
+    var paths = ['./data/' + fileName + bust, '../data/' + fileName + bust];
+    for (var i = 0; i < paths.length; i++) {
+      try {
+        var res = await fetch(paths[i], { cache: 'no-store' });
+        if (res.ok) {
+          var jsonData = await res.json();
+          renderCorridorsOnMap(jsonData, currentCorridorMode);
+          return;
+        }
+      } catch (e) {}
+    }
+    renderCorridorsOnMap(null, currentCorridorMode);
+  }
   loadHotspots('');
+  loadCorridors('realtime');
 });

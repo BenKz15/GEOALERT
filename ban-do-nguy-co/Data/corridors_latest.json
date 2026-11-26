@@ -1,0 +1,32 @@
+{
+  "status": "ok",
+  "mode": "realtime",
+  "date": "2023-07-29",
+  "updated_at": "2026-11-26T21:00:00+07:00",
+  "model_version": "V9.2",
+  "scope_note": "Chỉ quét tự động Quốc lộ & Tỉnh lộ (±60m vách taluy 30m). Khu dân cư/đường nhánh vui lòng bấm trực tiếp lên bản đồ để soi 30m.",
+  "summary": { "corridor_count": 1, "priority_count": 1, "total_danger_km": 4.2 },
+  "corridors": [
+    {
+      "id": "corr_1",
+      "road": "Đèo Bảo Lộc (QL.20)",
+      "length_km": 4.2,
+      "n_points": 14,
+      "mean_prob_pct": 85.4,
+      "peak": {
+        "lat": 11.45812, "lon": 107.72045, "prob_pct": 90.2, "tier": "priority",
+        "slope_30m_deg": 31.4, "rain_1d_mm": 64.5, "rain_3d_mm": 138.2,
+        "rain_15d_mm": 276.0, "soil_moisture_pct": 45.8
+      },
+      "why_factors": [
+        { "key": "slope", "label": "Độ dốc vách taluy 30m", "contribution_pct": 48, "shapley_pp": 43.3, "value": 31.4, "unit": "°" },
+        { "key": "rain_15d", "label": "Mưa tích lũy 15 ngày", "contribution_pct": 24, "shapley_pp": 21.6, "value": 276.0, "unit": "mm" },
+        { "key": "rain_3d", "label": "Mưa ngắn hạn 1–3 ngày", "contribution_pct": 19, "shapley_pp": 17.1, "value": 138.2, "unit": "mm" },
+        { "key": "soil_moisture", "label": "Độ ẩm đất nền", "contribution_pct": 9, "shapley_pp": 8.2, "value": 45.8, "unit": "%" }
+      ],
+      "surface_context": { "ndvi": 0.44, "in_ai_model": false, "status": "Thảm phủ thưa / đất canh tác" },
+      "danger_points": [[11.4551, 107.7172, 88.4], [11.4581, 107.7205, 90.2]]
+    }
+  ],
+  "error": null
+}
